@@ -1,0 +1,21 @@
+// Prisma schema — Sprint 0 skeleton.
+// Real domain models (Account, User, Application, …) land in Sprint 1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Marker row created during sprint 0 so the init migration has content
+/// and we can verify the Supabase connection end-to-end. Will be removed
+/// in Sprint 1 when real models are introduced.
+model MigrationCheck {
+  id        Int      @id @default(autoincrement())
+  note      String   @default("sprint-0 skeleton")
+  createdAt DateTime @default(now())
+}

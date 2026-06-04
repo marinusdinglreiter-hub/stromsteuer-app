@@ -1,0 +1,38 @@
+{
+  "name": "@stromsteuer/ui",
+  "version": "0.0.0",
+  "private": true,
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    "./lib/utils": "./src/lib/utils.ts",
+    "./button": "./src/button.tsx",
+    "./input": "./src/input.tsx",
+    "./card": "./src/card.tsx",
+    "./dialog": "./src/dialog.tsx",
+    "./toaster": "./src/toaster.tsx"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-slot": "^1.1.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "sonner": "^1.7.1",
+    "tailwind-merge": "^2.5.5"
+  },
+  "devDependencies": {
+    "@stromsteuer/eslint-config": "workspace:*",
+    "@stromsteuer/tsconfig": "workspace:*",
+    "@types/react": "^18.3.18",
+    "eslint": "^8.57.1",
+    "react": "^18.3.1",
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1"
+  },
+  "scripts": {
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  }
+}
