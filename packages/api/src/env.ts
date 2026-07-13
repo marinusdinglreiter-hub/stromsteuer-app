@@ -21,10 +21,15 @@ const schema = z.object({
 
   /** Resend (Transaktionale E-Mails). Optional — Versand ist no-op ohne Key. */
   RESEND_API_KEY: z.string().optional(),
-  /** Absender-Adresse fuer Kunden-Mails. Muss in Resend verifiziert sein. */
+  /**
+   * Absender-Adresse fuer Kunden-Mails. Muss in Resend verifiziert sein.
+   * Bewusst KEIN .email(): das From-Feld nutzt das Format "Name <addr>",
+   * das .email() faelschlich ablehnt (und in Zod 3.25 auch den Default
+   * validiert -> env() wuerde sonst bei jedem Aufruf werfen).
+   */
   RESEND_FROM_EMAIL: z
     .string()
-    .email()
+    .min(1)
     .default("Stromsteuer-Erstattung <no-reply@example.de>"),
   /** Empfaenger-Inbox der Partnerkanzlei. */
   KANZLEI_EMAIL_INBOX: z.string().email().default("kanzlei@example.de"),

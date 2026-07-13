@@ -1,8 +1,29 @@
 /** @type {import('next').NextConfig} */
 
+// Im Dev-Modus braucht Next.js (HMR / React Refresh) eval + einen
+// WebSocket-Kanal. In Produktion bleibt die CSP bewusst streng (kein
+// 'unsafe-eval'), da der Prod-Build ohne eval auskommt.
+const isDev = process.env.NODE_ENV !== "production";
+
+const scriptSrc = [
+  "script-src",
+  "'self'",
+  "'unsafe-inline'",
+  ...(isDev ? ["'unsafe-eval'"] : []),
+  "https://plausible.io",
+].join(" ");
+
+const connectSrc = [
+  "connect-src",
+  "'self'",
+  "https://plausible.io",
+  ...(isDev ? ["ws://localhost:*"] : []),
+].join(" ");
+
 /**
  * Security-Header fuer alle Routen. Bewusst konservativ:
  * - CSP erlaubt nur self + inline-Styles (Tailwind) und das Plausible-Script.
+ *   Im Dev zusaetzlich 'unsafe-eval' + HMR-WebSocket (siehe oben).
  * - X-Frame-Options DENY verhindert Clickjacking (Status-/Antragsseiten).
  * - HSTS erzwingt HTTPS (greift nur ueber HTTPS-Verbindungen).
  */
@@ -16,8 +37,8 @@ const securityHeaders = [
       "frame-ancestors 'none'",
       "img-src 'self' data: blob:",
       "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' https://plausible.io",
-      "connect-src 'self' https://plausible.io",
+      scriptSrc,
+      connectSrc,
       "font-src 'self' data:",
       "object-src 'none'",
     ].join("; "),
