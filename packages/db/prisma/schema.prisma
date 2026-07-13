@@ -1,5 +1,8 @@
-// Prisma schema — Sprint 0 skeleton.
-// Real domain models (Account, User, Application, …) land in Sprint 1.
+// Prisma schema — MVP Partnerkanzlei-Modell.
+//
+// Eine Application repraesentiert einen Antrag, der vom Kunden gestartet,
+// von der Partnerkanzlei bearbeitet und beim Hauptzollamt eingereicht wird.
+// Identifikation laeuft ueber sessionToken (Cookie + Magic-Link), kein Login.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,11 +14,141 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-/// Marker row created during sprint 0 so the init migration has content
-/// and we can verify the Supabase connection end-to-end. Will be removed
-/// in Sprint 1 when real models are introduced.
-model MigrationCheck {
-  id        Int      @id @default(autoincrement())
-  note      String   @default("sprint-0 skeleton")
+model Application {
+  id           String            @id @default(cuid())
+  sessionToken String            @unique
+  status       ApplicationStatus @default(DRAFT)
+
+  // Step 1 — Calculator / Antragsdaten
+  antragsjahr   Int?
+  branche       String?
+  geschaetzteKwh Int?
+
+  // Step 2a — Lieferstellen (in eigener Tabelle)
+  lieferstellen Lieferstelle[]
+
+  // Unveraenderliche Eingabe-/Aktions-Historie (Audit-Trail)
+  auditEvents   AuditEvent[]
+
+  // Step 2b — Triage (6 Ja/Nein + bedingte Schaetzungen)
+  triageKleinsteRechtsperson Boolean?
+  triageKeineFinanzschwierig Boolean? // UiS-Check; true = entlastungsfaehig
+  triageKeineEuRueckforderung Boolean? // true = ok, false = Hardstop
+  triagePrivatnutzung        Boolean?
+  triagePrivatnutzungKwh     Int?
+  triageEAutoLaden           Boolean?
+  triageEAutoKwh             Int?
+  triageEnergieAnDritte      Boolean? // true => needs1456 Flag
+
+  // Step 3a — Firmendaten
+  firmenname       String?
+  rechtsform       String?
+  geschaeftsfuehrer String?
+  vorname          String?
+  nachname         String?
+  telefon          String?
+  strasse          String?
+  plz              String?
+  ort              String?
+
+  // Server-berechnete Werte (idempotent aus Lieferstellen + Triage abgeleitet)
+  bruttoKwh        Int?
+  nettoKwh         Int?
+  bruttoErstattung Decimal? @db.Decimal(12, 2)
+  honorar          Decimal? @db.Decimal(12, 2)
+  nettoAuszahlung  Decimal? @db.Decimal(12, 2)
+
+  // Step 3b — Mandat & Signatur
+  email                 String?
+  agbAccepted           Boolean?
+  mandatAccepted        Boolean?
+  vertretungsBerechtigt Boolean?
+  mandatSignedAt        DateTime?
+  mandatSignerName      String?
+  mandatSignerIp        String?
+  mandatSignerUserAgent String?
+  signaturePngKey       String?
+  mandatPdfKey          String?
+
+  // Uebergabe an Kanzlei
+  kanzleiPaketKey String?
+  submittedAt     DateTime?
+  hzaDecisionAt   DateTime?
+  hzaAmount       Decimal?  @db.Decimal(12, 2)
+  payoutAt        DateTime?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime
+
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model Lieferstelle {
+  id            String      @id @default(cuid())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String
+
+  firmenname    String
+  adresse       String
+  plz           String?
+  hza           String?
+  jahresKwh     Int
+
+  belegFileKeys String[] // Supabase Storage Keys
+  ocrConfidence Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([applicationId])
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SIGNED
+  PENDING_REVIEW
+  SUBMITTED
+  APPROVED
+  PAID
+  REJECTED
+  EXPIRED
+}
+
+/// Append-only Audit-Trail: jede relevante Aktion an einem Antrag.
+/// Es darf ausschliesslich INSERT geben. UPDATE/DELETE werden in Code nie
+/// ausgefuehrt und zusaetzlich per DB-Trigger hart blockiert
+/// (Migration `1_audit_immutable`).
+model AuditEvent {
+  id            String         @id @default(cuid())
+  application   Application?   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String?
+  type          AuditEventType
+  actor         AuditActor     @default(CUSTOMER)
+  ip            String?
+  userAgent     String?
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+
+  @@index([applicationId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+enum AuditActor {
+  CUSTOMER
+  KANZLEI
+  SYSTEM
+}
+
+enum AuditEventType {
+  APPLICATION_CREATED
+  CALC_UPDATED
+  TRIAGE_UPDATED
+  FIRMA_UPDATED
+  MANDAT_SIGNED
+  APPLICATION_SUBMITTED
+  STATUS_CHANGED
+  DRAFT_EXPIRED
 }

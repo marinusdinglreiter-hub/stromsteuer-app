@@ -1,0 +1,41 @@
+{
+  "name": "@stromsteuer/api",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./calc": "./src/calc/stromsteuer.ts",
+    "./router": "./src/router.ts",
+    "./trpc": "./src/trpc.ts"
+  },
+  "scripts": {
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-textract": "^3.717.0",
+    "@stromsteuer/db": "workspace:*",
+    "@supabase/supabase-js": "^2.47.10",
+    "@trpc/server": "^11.0.0",
+    "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^2.4.5",
+    "resend": "^4.0.1",
+    "superjson": "^2.2.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@stromsteuer/eslint-config": "workspace:*",
+    "@stromsteuer/tsconfig": "workspace:*",
+    "@types/node": "^22.10.2",
+    "@types/pdf-parse": "^1.1.5",
+    "eslint": "^8.57.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}
