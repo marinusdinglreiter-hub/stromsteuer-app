@@ -62,6 +62,20 @@ export const adminRouter = router({
       });
     }),
 
+  /** Anzahl der Antraege je Status, fuer die Filterleiste im Eingang. */
+  counts: adminProcedure.query(async () => {
+    const rows = await prisma.application.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    });
+    const counts = Object.fromEntries(APP_STATUSES.map((s) => [s, 0])) as Record<
+      (typeof APP_STATUSES)[number],
+      number
+    >;
+    for (const row of rows) counts[row.status] = row._count._all;
+    return counts;
+  }),
+
   /** Voller Datensatz inkl. Lieferstellen + Signed-URL aufs Kanzlei-Paket. */
   get: adminProcedure
     .input(z.object({ id: z.string().min(1) }))

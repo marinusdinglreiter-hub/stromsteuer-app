@@ -18,6 +18,15 @@ export {
   type CalcResult,
 } from "./calc/stromsteuer";
 export {
+  folgejahrPreis,
+  PREIS_TABELLEN,
+  preisFuer,
+  preisTabelle,
+  type PreisBand,
+  type PreisErgebnis,
+  type PreisTabelle,
+} from "./calc/preise";
+export {
   istOcrVertrauenswuerdig,
   OCR_CONFIDENCE_THRESHOLD,
   parseStromrechnung,

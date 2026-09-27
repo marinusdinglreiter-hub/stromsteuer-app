@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./calc": "./src/calc/stromsteuer.ts",
+    "./calc/preise": "./src/calc/preise.ts",
     "./router": "./src/router.ts",
     "./trpc": "./src/trpc.ts"
   },
