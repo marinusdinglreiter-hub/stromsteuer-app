@@ -9,7 +9,10 @@
     "./input": "./src/input.tsx",
     "./card": "./src/card.tsx",
     "./dialog": "./src/dialog.tsx",
-    "./toaster": "./src/toaster.tsx"
+    "./toaster": "./src/toaster.tsx",
+    "./badge": "./src/badge.tsx",
+    "./callout": "./src/callout.tsx",
+    "./progress": "./src/progress.tsx"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
