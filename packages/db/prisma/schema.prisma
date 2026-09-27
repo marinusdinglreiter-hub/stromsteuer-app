@@ -69,6 +69,10 @@ model Application {
   mandatSignerUserAgent String?
   signaturePngKey       String?
   mandatPdfKey          String?
+  mandatPdfSha256       String? // SHA-256-Hex der signierten Mandat-PDF (Integritaetsnachweis)
+  consentVersion        String? // Version des zugestimmten Wortlauts (legalTexts.CONSENT_VERSION)
+  consentTextSha256     String? // SHA-256-Hex des kanonischen Einwilligungstexts
+  mandatTimestampKey    String? // Reserve: Storage-Key eines RFC-3161-Zeitstempels (optional)
 
   // Uebergabe an Kanzlei
   kanzleiPaketKey String?

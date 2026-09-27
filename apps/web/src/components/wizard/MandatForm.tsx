@@ -16,6 +16,7 @@ import { SignaturCanvas, type SignaturCanvasHandle } from "./SignaturCanvas";
 import { TimelineNext } from "./TimelineNext";
 
 type Props = {
+  consentVersion: string;
   firmenname: string;
   geschaeftsfuehrer: string;
   antragsjahr: number;
@@ -79,6 +80,7 @@ export function MandatForm(props: Props) {
     formData.set("agbAccepted", "true");
     formData.set("mandatAccepted", "true");
     formData.set("vertretungsBerechtigt", "true");
+    formData.set("consentVersion", props.consentVersion);
     startTransition(async () => {
       try {
         const result = await signMandatAction(null, formData);

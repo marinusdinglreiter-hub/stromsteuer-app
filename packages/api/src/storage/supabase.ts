@@ -35,6 +35,13 @@ async function uploadToBucket(
   contentType: string,
 ): Promise<UploadResult> {
   if (!hasSupabaseCredentials()) {
+    if (!env().ALLOW_LOCAL_STORAGE_FALLBACK) {
+      throw new Error(
+        `Upload (${bucket}) nicht moeglich: Supabase ist nicht konfiguriert. ` +
+          "SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY setzen — oder fuer lokale " +
+          "Entwicklung bewusst ALLOW_LOCAL_STORAGE_FALLBACK=true (kein echter Upload).",
+      );
+    }
     const key = `local/${applicationId}/${Date.now()}-${sanitizeFileName(fileName)}`;
     return { key };
   }

@@ -77,6 +77,7 @@ const signSchema = z.object({
   agbAccepted: z.literal("true"),
   mandatAccepted: z.literal("true"),
   vertretungsBerechtigt: z.literal("true"),
+  consentVersion: z.string().max(40).optional(),
 });
 
 export type SignResult =
@@ -94,6 +95,7 @@ export async function signMandatAction(
     agbAccepted: formData.get("agbAccepted"),
     mandatAccepted: formData.get("mandatAccepted"),
     vertretungsBerechtigt: formData.get("vertretungsBerechtigt"),
+    consentVersion: formData.get("consentVersion") ?? undefined,
   });
   if (!parsed.success) {
     const first = parsed.error.errors[0];
@@ -116,6 +118,7 @@ export async function signMandatAction(
       signatureDataUrl: parsed.data.signatureDataUrl,
       kanzleiName: BRAND.kanzlei.name,
       kanzleiAnwalt: BRAND.kanzlei.anwalt,
+      consentVersion: parsed.data.consentVersion,
     });
   } catch (err) {
     return {

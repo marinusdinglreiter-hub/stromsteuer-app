@@ -1,4 +1,4 @@
-import { calculateErstattung } from "@stromsteuer/api";
+import { calculateErstattung, CONSENT_VERSION } from "@stromsteuer/api";
 import { ShieldCheck } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -56,6 +56,7 @@ export default async function VollmachtPage() {
           </div>
           <div className="mt-6">
             <MandatForm
+              consentVersion={CONSENT_VERSION}
               firmenname={application.firmenname}
               geschaeftsfuehrer={application.geschaeftsfuehrer}
               antragsjahr={

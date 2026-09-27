@@ -6,13 +6,15 @@ import { z } from "zod";
 
 import { logAudit, tryLogAudit } from "../audit";
 import { calculateErstattung, type CalcResult } from "../calc/stromsteuer";
+import { sha256Hex } from "../crypto";
 import { sendMail } from "../email/client";
 import {
   renderAntragBestaetigt,
   renderNeuerAntragKanzlei,
 } from "../email/templates";
-import { env } from "../env";
+import { env, hasSupabaseCredentials } from "../env";
 import { generateKanzleiPaket } from "../forms/kanzleiPaket";
+import { canonicalConsentText, CONSENT_VERSION } from "../forms/legalTexts";
 import { generateMandatPdf } from "../forms/mandat";
 import {
   getGeneratedDownloadUrl,
@@ -292,9 +294,38 @@ export const applicationRouter = router({
           .max(2_000_000),
         kanzleiName: z.string().min(1).max(200),
         kanzleiAnwalt: z.string().min(1).max(160),
+        /**
+         * Version des im Client angezeigten Wortlauts. Optional — dient der
+         * Erkennung veralteter Clients: weicht sie von der serverseitig
+         * gebundenen `CONSENT_VERSION` ab, wird die Signatur abgewiesen.
+         */
+        consentVersion: z.string().max(40).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Rechtssicherheit: eine Signatur darf nur erfasst werden, wenn die
+      // Beweis-Artefakte (PNG + PDF) real persistiert werden koennen. Der stille
+      // local-Fallback aus storage/supabase.ts wuerde sonst eine "unterschriebene"
+      // PDF vortaeuschen, die nie gespeichert wurde.
+      if (
+        !hasSupabaseCredentials() &&
+        env().ALLOW_LOCAL_STORAGE_FALLBACK !== true
+      ) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            "Dokument-Speicher ist nicht konfiguriert — Signatur kann nicht rechtssicher abgelegt werden.",
+        });
+      }
+      // Veralteten Client abweisen: der angezeigte Wortlaut muss zur aktuell
+      // gebundenen Version passen.
+      if (input.consentVersion && input.consentVersion !== CONSENT_VERSION) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Die Vollmacht wurde inzwischen aktualisiert. Bitte Seite neu laden und erneut bestaetigen.",
+        });
+      }
       const app = await prisma.application.findUnique({
         where: { id: ctx.application.id },
       });
@@ -355,7 +386,12 @@ export const applicationRouter = router({
         signerName: input.signerName,
         signerIp: ctx.ip,
         signatureDataUrl: input.signatureDataUrl,
+        consentVersion: CONSENT_VERSION,
       });
+      // Integritaets-Fingerprints: Hash der finalen PDF-Bytes (manipulations-
+      // sicher via append-only Audit) + versions-stabiler Hash des Wortlauts.
+      const mandatPdfSha256 = sha256Hex(pdfBytes);
+      const consentTextSha256 = sha256Hex(canonicalConsentText());
       const pdfUpload = await uploadGenerated(
         app.id,
         `mandat-${app.id}.pdf`,
@@ -378,6 +414,9 @@ export const applicationRouter = router({
             mandatSignedAt: signedAt,
             signaturePngKey: signatureUpload.key,
             mandatPdfKey: pdfUpload.key,
+            mandatPdfSha256,
+            consentVersion: CONSENT_VERSION,
+            consentTextSha256,
             status: "SIGNED",
           },
         });
@@ -392,6 +431,9 @@ export const applicationRouter = router({
               signerName: input.signerName,
               signaturePngKey: signatureUpload.key,
               mandatPdfKey: pdfUpload.key,
+              mandatPdfSha256,
+              consentVersion: CONSENT_VERSION,
+              consentTextSha256,
               kanzleiName: input.kanzleiName,
             },
           },

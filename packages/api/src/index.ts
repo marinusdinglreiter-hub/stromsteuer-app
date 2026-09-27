@@ -34,6 +34,8 @@ export {
   uploadGenerated,
 } from "./storage/supabase";
 export { generateMandatPdf, type MandatInput } from "./forms/mandat";
+export { CONSENT_VERSION } from "./forms/legalTexts";
+export { verifyMandatIntegrity, type MandatIntegrity } from "./forms/verify";
 export {
   generateKanzleiPaket,
   type KanzleiPaketInput,

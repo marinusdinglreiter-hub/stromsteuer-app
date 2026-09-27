@@ -19,6 +19,16 @@ const schema = z.object({
   /** Bucket fuer generierte Dateien (Mandat-PDF, Signatur-PNG, Kanzlei-Pakete). */
   SUPABASE_BUCKET_GENERATED: z.string().default("generated"),
 
+  /**
+   * Erlaubt NUR fuer lokale Entwicklung den stillen Storage-Fallback (kein
+   * echter Upload). In Produktion niemals setzen — sonst wuerden Beweis-PDFs
+   * nicht wirklich abgelegt. Default: false.
+   */
+  ALLOW_LOCAL_STORAGE_FALLBACK: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
+
   /** Resend (Transaktionale E-Mails). Optional — Versand ist no-op ohne Key. */
   RESEND_API_KEY: z.string().optional(),
   /**

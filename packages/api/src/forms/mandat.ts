@@ -19,6 +19,8 @@ import {
   type PDFPage,
 } from "pdf-lib";
 
+import { CLAUSES, CONSENT_VERSION, renderClause } from "./legalTexts";
+
 export type MandatInput = {
   applicationId: string;
   signedAt: Date;
@@ -43,6 +45,11 @@ export type MandatInput = {
   signerIp: string | null;
   /** "data:image/png;base64,..." aus dem Canvas. Optional — Signaturblock wird sonst leer angezeigt. */
   signatureDataUrl: string | null;
+  /**
+   * Version des zustimmungspflichtigen Wortlauts (aus `legalTexts`). Optional —
+   * faellt auf die aktuell im Code gebundene `CONSENT_VERSION` zurueck.
+   */
+  consentVersion?: string;
 };
 
 const A4 = { width: 595.28, height: 841.89 };
@@ -256,42 +263,18 @@ export async function generateMandatPdf(
   state = drawSubheading(state, "§ 1 Mandatsgegenstand");
   state = drawBody(
     state,
-    [
-      `Die Mandatsnehmerin wird vom Mandanten beauftragt, die Stromsteuer-Entlastung`,
-      `nach § 9b StromStG fuer das Verbrauchsjahr ${input.antragsjahr} beim zustaendigen`,
-      `Hauptzollamt zu beantragen und das Antragsverfahren bis zur Bekanntgabe des`,
-      `Bescheids zu betreuen.`,
-      "",
-      "Die Mandatsnehmerin handelt ausschliesslich im Rahmen der hier erteilten Vollmacht.",
-      "Die Datenaufbereitung erfolgt auf Grundlage der vom Mandanten zur Verfuegung",
-      "gestellten Stromrechnungen und Erklaerungen.",
-    ].join(" "),
+    renderClause(CLAUSES.mandatsgegenstand, { antragsjahr: input.antragsjahr }),
   );
   state = drawSpacer(state, 6);
 
   // ---- § 2 Pflichten des Mandanten ----
   state = drawSubheading(state, "§ 2 Pflichten des Mandanten");
-  state = drawBody(
-    state,
-    [
-      "Der Mandant verpflichtet sich, alle fuer die Antragstellung erforderlichen Belege",
-      "(insbesondere Jahres- oder Schlussrechnungen des Stromversorgers) vollstaendig",
-      "und wahrheitsgemaess zu uebermitteln sowie etwaige Rueckfragen der Mandatsnehmerin",
-      "oder des Hauptzollamts zeitnah zu beantworten.",
-    ].join(" "),
-  );
+  state = drawBody(state, CLAUSES.pflichtenDesMandanten);
   state = drawSpacer(state, 6);
 
   // ---- § 3 Verschwiegenheit ----
   state = drawSubheading(state, "§ 3 Verschwiegenheit und Datenschutz");
-  state = drawBody(
-    state,
-    [
-      "Die Mandatsnehmerin unterliegt der anwaltlichen Schweigepflicht (§ 43a Abs. 2 BRAO).",
-      "Daten werden EU-konform verarbeitet (DSGVO). Eine Auftragsverarbeitungs-Vereinbarung",
-      "mit dem technischen Dienstleister besteht. Details siehe Datenschutzerklaerung.",
-    ].join(" "),
-  );
+  state = drawBody(state, CLAUSES.verschwiegenheit);
 
   // ===== Seite 2 — Vollmacht =====
   state = newPage(state, "Vollmacht");
@@ -311,33 +294,15 @@ export async function generateMandatPdf(
   state = drawSpacer(state, 4);
   state = drawBody(
     state,
-    [
-      `Beantragung der Stromsteuer-Entlastung nach § 9b StromStG fuer das Verbrauchsjahr`,
-      `${input.antragsjahr}, einschliesslich aller damit verbundenen Erklaerungen (insb.`,
-      "Formular 1139, ggf. Formular 1456), gegenueber dem zustaendigen Hauptzollamt.",
-    ].join(" "),
+    renderClause(CLAUSES.vollmachtGegenstand, { antragsjahr: input.antragsjahr }),
   );
   state = drawSpacer(state, 4);
-  state = drawBody(
-    state,
-    [
-      "Die Vollmacht umfasst Empfangsbevollmaechtigung fuer Bescheide und Schriftverkehr.",
-      "Sie erlischt mit Bekanntgabe des Bescheids bzw. Abschluss eines etwaigen",
-      "Rechtsbehelfsverfahrens.",
-    ].join(" "),
-  );
+  state = drawBody(state, CLAUSES.vollmachtUmfang);
 
   // ===== Seite 3 — Erfolgshonorar + Signatur =====
   state = newPage(state, "Erfolgshonorar & Signatur");
   state = drawHeading(state, "Erfolgshonorar-Vereinbarung");
-  state = drawBody(
-    state,
-    [
-      "Die Parteien vereinbaren ein Erfolgshonorar gemaess § 4a Abs. 1 RVG. Das Honorar",
-      "ist ausschliesslich im Erfolgsfall — also bei Auszahlung der Stromsteuer-Entlastung",
-      "durch das Hauptzollamt — geschuldet.",
-    ].join(" "),
-  );
+  state = drawBody(state, CLAUSES.erfolgshonorar);
   state = drawSpacer(state, 6);
   state = drawSubheading(state, "Vergutungs-Eckdaten");
   state = drawBody(
@@ -361,7 +326,17 @@ export async function generateMandatPdf(
       `Vollstaendiger Name: ${input.signerName}`,
       `Unterschrieben am: ${dateTime(input.signedAt)}`,
       `IP-Adresse: ${input.signerIp ?? "—"}`,
+      `Einwilligungs-Version: ${input.consentVersion ?? CONSENT_VERSION}`,
+      `Verifikations-ID: ${input.applicationId}`,
     ].join("\n"),
+  );
+  state = drawSpacer(state, 6);
+  state = drawBody(
+    state,
+    "Dieses Dokument ist serverseitig durch einen SHA-256-Integritaets-Hash und " +
+      "einen unveraenderbaren (append-only) Audit-Eintrag gegen nachtraegliche " +
+      "Manipulation gesichert. Der Hash kann beim Anbieter zur Echtheitspruefung " +
+      "gegen diese Datei abgeglichen werden.",
   );
   state = drawSpacer(state, 8);
 
