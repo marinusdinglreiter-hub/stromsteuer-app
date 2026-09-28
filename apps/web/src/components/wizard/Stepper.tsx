@@ -13,45 +13,51 @@ export function Stepper({ current }: { current: WizardStep }) {
   const currentIndex = STEPS.findIndex((s) => s.id === current);
 
   return (
-    <ol className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 py-6">
-      {STEPS.map((step, idx) => {
-        const done = idx < currentIndex;
-        const active = idx === currentIndex;
-        return (
-          <li key={step.id} className="flex flex-1 items-center">
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold",
-                  done && "bg-blue-700 text-white",
-                  active && "bg-blue-700 text-white",
-                  !done && !active && "bg-slate-200 text-slate-500",
-                )}
-              >
-                {done ? <Check className="h-3.5 w-3.5" /> : idx + 1}
-              </span>
-              <span
-                className={cn(
-                  "text-sm font-medium",
-                  (done || active) && "text-slate-900",
-                  !done && !active && "text-slate-400",
-                )}
-              >
-                {step.label}
-              </span>
-            </div>
-            {idx < STEPS.length - 1 ? (
+    <nav aria-label="Fortschritt" className="mx-auto w-full max-w-3xl pb-6 pt-2">
+      <ol className="flex items-center justify-between gap-2 sm:gap-3">
+        {STEPS.map((step, idx) => {
+          const done = idx < currentIndex;
+          const active = idx === currentIndex;
+          return (
+            <li key={step.id} className="flex flex-1 items-center last:flex-none">
               <div
-                className={cn(
-                  "mx-3 h-px flex-1",
-                  idx < currentIndex ? "bg-blue-700" : "bg-slate-200",
-                )}
-                aria-hidden
-              />
-            ) : null}
-          </li>
-        );
-      })}
-    </ol>
+                className="flex items-center gap-2"
+                aria-current={active ? "step" : undefined}
+              >
+                <span
+                  className={cn(
+                    "tnum flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                    done && "bg-success text-success-foreground",
+                    active && "bg-primary text-primary-foreground ring-4 ring-secondary",
+                    !done && !active && "border border-input bg-background text-muted-foreground",
+                  )}
+                >
+                  {done ? <Check className="h-3.5 w-3.5" aria-hidden /> : idx + 1}
+                </span>
+                <span
+                  className={cn(
+                    "text-sm font-medium",
+                    active ? "text-ink" : done ? "text-foreground" : "text-muted-foreground",
+                    !active && "hidden sm:inline",
+                  )}
+                >
+                  {step.label}
+                  {done ? <span className="sr-only"> (erledigt)</span> : null}
+                </span>
+              </div>
+              {idx < STEPS.length - 1 ? (
+                <div
+                  className={cn(
+                    "mx-2 h-px flex-1 sm:mx-3",
+                    idx < currentIndex ? "bg-success" : "bg-border",
+                  )}
+                  aria-hidden
+                />
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }

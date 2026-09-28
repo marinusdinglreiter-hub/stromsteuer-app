@@ -48,15 +48,15 @@ export default async function LieferstellenPage({ searchParams }: PageProps) {
       <Stepper current="pruefen" />
 
       <div className="mx-auto max-w-3xl">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:p-8">
           <div className="text-center">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <FileText className="h-6 w-6" />
             </div>
-            <h1 className="mt-3 text-2xl font-bold text-slate-900">
+            <h1 className="mt-3 text-2xl font-bold text-foreground">
               Rechnungen &amp; Lieferstellen
             </h1>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-muted-foreground">
               Laden Sie Ihre Stromrechnungen hoch oder erfassen Sie Ihre
               Lieferstellen manuell.
             </p>
@@ -66,10 +66,10 @@ export default async function LieferstellenPage({ searchParams }: PageProps) {
             <MassenUpload />
           </div>
 
-          <div className="my-6 flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-slate-400">
-            <div className="h-px flex-1 bg-slate-200" />
+          <div className="my-6 flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="h-px flex-1 bg-border" />
             oder pro Lieferstelle
-            <div className="h-px flex-1 bg-slate-200" />
+            <div className="h-px flex-1 bg-border" />
           </div>
 
           <LieferstellenList initial={initial} />
@@ -84,7 +84,7 @@ export default async function LieferstellenPage({ searchParams }: PageProps) {
         </div>
 
         {errorMessage ? (
-          <div className="mt-4 inline-flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="mt-4 inline-flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-warning-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             {decodeURIComponent(errorMessage)}
           </div>
@@ -93,7 +93,7 @@ export default async function LieferstellenPage({ searchParams }: PageProps) {
         <div className="mt-6 flex items-center justify-between">
           <a
             href="/antrag/schritt-1"
-            className="text-sm font-medium text-slate-600 hover:text-slate-900"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
           >
             ← Zurück
           </a>
@@ -101,7 +101,7 @@ export default async function LieferstellenPage({ searchParams }: PageProps) {
             <Button
               type="submit"
               size="lg"
-              className="bg-blue-700 text-white hover:bg-blue-800"
+              className="bg-primary text-white hover:bg-primary/90"
               disabled={summe < 40_000}
             >
               Weiter zu Erklärungen

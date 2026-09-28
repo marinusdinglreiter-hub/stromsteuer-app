@@ -102,32 +102,32 @@ export function MandatForm(props: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Erstattungs-Reminder */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-        <div className="text-xs uppercase tracking-wide text-slate-500">
+      <div className="rounded-xl border border-border bg-muted p-4 text-center">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">
           Ihre Erstattung nach Abzügen
         </div>
-        <div className="mt-1 text-3xl font-bold text-slate-900">
+        <div className="mt-1 text-3xl font-bold text-foreground">
           {formatEur(props.nettoAuszahlung)}
         </div>
-        <div className="mt-1 text-xs text-slate-500">
+        <div className="mt-1 text-xs text-muted-foreground">
           Sie zahlen 0 € bei Ablehnung.
         </div>
       </div>
 
       {/* Anwalts-Vertrauenskarte */}
-      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-white p-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <User className="h-5 w-5" />
         </div>
         <div className="flex-1">
-          <div className="text-sm font-semibold text-slate-900">
+          <div className="text-sm font-semibold text-foreground">
             {BRAND.kanzlei.anwalt}
           </div>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-muted-foreground">
             Steuerberater — {BRAND.kanzlei.name}
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+        <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">
           <CheckCircle2 className="h-3.5 w-3.5" />
           Geprüft
         </span>
@@ -177,22 +177,22 @@ export function MandatForm(props: Props) {
       </MandatAccordion>
 
       {/* Zustimmungen */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="rounded-xl border border-border bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-900">
+          <div className="text-sm font-semibold text-foreground">
             Zustimmungen
           </div>
           <span
             className={
               zustimmungenCount === 3
-                ? "rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700"
-                : "rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                ? "rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success"
+                : "rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
             }
           >
             {zustimmungenCount} / 3
           </span>
         </div>
-        <div className="space-y-2.5 text-sm text-slate-700">
+        <div className="space-y-2.5 text-sm text-foreground">
           <Check
             checked={agb}
             onChange={setAgb}
@@ -201,7 +201,7 @@ export function MandatForm(props: Props) {
                 Ich akzeptiere die{" "}
                 <Link
                   href="/agb"
-                  className="text-blue-700 underline-offset-2 hover:underline"
+                  className="text-primary underline-offset-2 hover:underline"
                   target="_blank"
                 >
                   AGB
@@ -224,13 +224,13 @@ export function MandatForm(props: Props) {
       </div>
 
       {/* Digitale Unterschrift */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <ShieldCheck className="h-4 w-4 text-slate-500" />
+      <div className="rounded-xl border border-border bg-white p-4">
+        <div className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
           Digitale Unterschrift
         </div>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-700">
+          <span className="mb-1 block text-xs font-medium text-foreground">
             Vollständiger Name des Unterzeichners
           </span>
           <input
@@ -240,16 +240,16 @@ export function MandatForm(props: Props) {
             onBlur={() => setNameTouched(true)}
             placeholder="Max Mustermann"
             aria-invalid={nameTouched && !nameValid}
-            className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+            className="block w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25"
           />
           {nameTouched && !nameValid ? (
-            <p className="mt-1 text-xs text-red-600">
+            <p className="mt-1 text-xs text-destructive">
               Bitte vollständigen Namen angeben (mind. 2 Zeichen).
             </p>
           ) : null}
         </label>
         <label className="mt-3 block">
-          <span className="mb-1 block text-xs font-medium text-slate-700">
+          <span className="mb-1 block text-xs font-medium text-foreground">
             Ihre E-Mail für Bestätigung und Vollmacht-PDF
           </span>
           <input
@@ -259,14 +259,14 @@ export function MandatForm(props: Props) {
             onBlur={() => setEmailTouched(true)}
             placeholder="max.mustermann@unternehmen.de"
             aria-invalid={emailTouched && !emailValid}
-            className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+            className="block w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25"
           />
           {emailTouched && !emailValid ? (
-            <p className="mt-1 text-xs text-red-600">
+            <p className="mt-1 text-xs text-destructive">
               Bitte eine gültige E-Mail-Adresse angeben.
             </p>
           ) : (
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Wir senden Bestätigung, unterzeichnete Vollmacht und Status-Updates
               an diese Adresse.
             </p>
@@ -275,17 +275,17 @@ export function MandatForm(props: Props) {
 
         <div className="mt-3">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-700">
+            <span className="text-xs font-medium text-foreground">
               Unterschrift
             </span>
-            <div className="inline-flex overflow-hidden rounded-md border border-slate-200 text-xs">
+            <div className="inline-flex overflow-hidden rounded-md border border-border text-xs">
               <button
                 type="button"
                 onClick={() => setSigMode("draw")}
                 className={
                   sigMode === "draw"
-                    ? "bg-slate-900 px-2.5 py-1 font-medium text-white"
-                    : "px-2.5 py-1 text-slate-600 hover:bg-slate-50"
+                    ? "bg-ink px-2.5 py-1 font-medium text-white"
+                    : "px-2.5 py-1 text-muted-foreground hover:bg-muted"
                 }
               >
                 Zeichnen
@@ -295,8 +295,8 @@ export function MandatForm(props: Props) {
                 onClick={() => setSigMode("type")}
                 className={
                   sigMode === "type"
-                    ? "bg-slate-900 px-2.5 py-1 font-medium text-white"
-                    : "px-2.5 py-1 text-slate-600 hover:bg-slate-50"
+                    ? "bg-ink px-2.5 py-1 font-medium text-white"
+                    : "px-2.5 py-1 text-muted-foreground hover:bg-muted"
                 }
               >
                 Tippen
@@ -313,7 +313,7 @@ export function MandatForm(props: Props) {
                     sigRef.current?.clear();
                     setSignatureFilled(false);
                   }}
-                  className="text-xs text-slate-500 hover:text-slate-900"
+                  className="text-xs text-muted-foreground hover:text-foreground"
                 >
                   Löschen
                 </button>
@@ -332,17 +332,17 @@ export function MandatForm(props: Props) {
                 onChange={(e) => setTypedSig(e.target.value)}
                 placeholder="Ihr vollständiger Name als Unterschrift"
                 aria-label="Unterschrift als Text eingeben"
-                className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                className="block w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25"
               />
               {typedValid ? (
                 <div
-                  className="mt-2 flex h-16 items-center rounded-md border border-slate-200 bg-white px-4 text-3xl italic text-slate-900"
+                  className="mt-2 flex h-16 items-center rounded-md border border-border bg-white px-4 text-3xl italic text-foreground"
                   style={{ fontFamily: "'Segoe Script','Brush Script MT',cursive" }}
                 >
                   {typedSig.trim()}
                 </div>
               ) : (
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Tippen Sie Ihren Namen — er wird als Unterschrift übernommen
                   (barrierefrei, ohne Maus).
                 </p>
@@ -351,7 +351,7 @@ export function MandatForm(props: Props) {
           )}
         </div>
 
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-muted-foreground">
           Vergütung: {props.honorarSatz.toString().replace(".", ",")} % der
           Erstattung (basierend auf Ihrem Verbrauch), Mindestbetrag{" "}
           {formatEur(500)}. Gesetzlicher Selbstbehalt: {formatEur(250)}.
@@ -367,7 +367,7 @@ export function MandatForm(props: Props) {
       <div className="flex items-center justify-between">
         <Link
           href="/antrag/schritt-3/firma"
-          className="text-sm font-medium text-slate-600 hover:text-slate-900"
+          className="text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           ← Zurück
         </Link>
@@ -375,12 +375,12 @@ export function MandatForm(props: Props) {
           type="submit"
           size="lg"
           disabled={!canSubmit}
-          className="bg-blue-700 text-white hover:bg-blue-800"
+          className="bg-primary text-white hover:bg-primary/90"
         >
           {pending ? "Wird eingereicht…" : "Unterschreiben und einreichen"}
         </Button>
       </div>
-      <p className="text-right text-xs text-slate-500">
+      <p className="text-right text-xs text-muted-foreground">
         Sicher, kein Vorab-Kosten. Vergütung nur bei erfolgreicher Erstattung.
       </p>
     </form>
@@ -425,7 +425,7 @@ function Check({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-200"
+        className="mt-0.5 h-4 w-4 rounded border-input text-primary focus:ring-ring/25"
       />
       <span>{label}</span>
     </label>

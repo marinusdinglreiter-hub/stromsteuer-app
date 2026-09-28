@@ -41,15 +41,15 @@ export default async function VollmachtPage() {
     <>
       <Stepper current="unterschreiben" />
       <div className="mx-auto max-w-2xl">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:p-8">
           <div className="text-center">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-success-soft text-success">
               <ShieldCheck className="h-6 w-6" />
             </div>
-            <h1 className="mt-3 text-2xl font-bold text-slate-900">
+            <h1 className="mt-3 text-2xl font-bold text-foreground">
               Letzter Schritt: Vollmacht unterschreiben
             </h1>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-muted-foreground">
               Die Partnerkanzlei reicht Ihren Antrag beim Hauptzollamt ein. Sie
               zahlen nur bei Erfolg.
             </p>

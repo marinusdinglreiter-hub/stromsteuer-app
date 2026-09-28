@@ -79,7 +79,7 @@ export function MassenUpload() {
   }
 
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-blue-50/40 p-5">
+    <div className="rounded-2xl border border-dashed border-input bg-secondary/40 p-5">
       <input
         ref={inputRef}
         type="file"
@@ -92,9 +92,9 @@ export function MassenUpload() {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={state.loading}
-        className="flex w-full items-center gap-3 rounded-xl bg-white p-4 text-left shadow-sm transition hover:bg-blue-50/60 disabled:opacity-60"
+        className="flex w-full items-center gap-3 rounded-xl bg-white p-4 text-left shadow-sm transition hover:bg-secondary/60 disabled:opacity-60"
       >
-        <span className="flex h-12 w-12 items-center justify-center rounded-md bg-blue-700 text-white">
+        <span className="flex h-12 w-12 items-center justify-center rounded-md bg-primary text-white">
           {state.loading ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
@@ -102,17 +102,17 @@ export function MassenUpload() {
           )}
         </span>
         <span className="flex-1">
-          <span className="block text-sm font-semibold text-slate-900">
+          <span className="block text-sm font-semibold text-foreground">
             Alle Rechnungen auf einmal hochladen
           </span>
-          <span className="block text-xs text-slate-500">
+          <span className="block text-xs text-muted-foreground">
             Lieferstellen werden automatisch erkannt · PDF, JPG, PNG
           </span>
         </span>
       </button>
 
       {state.loading ? (
-        <div className="mt-3 text-xs text-slate-600">
+        <div className="mt-3 text-xs text-muted-foreground">
           Verarbeitet {state.progress.done} / {state.progress.total}…
         </div>
       ) : null}

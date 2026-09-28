@@ -1,53 +1,22 @@
-import { Inbox } from "lucide-react";
+import { Badge } from "@stromsteuer/ui/badge";
+import { cn } from "@stromsteuer/ui/lib/utils";
+import { ChevronRight, Inbox } from "lucide-react";
 import Link from "next/link";
 
+import { erstattungNachSelbstbehalt, formatEur } from "@/lib/format";
+import {
+  APPLICATION_STATUSES,
+  isApplicationStatus,
+  STATUS_META,
+  statusMeta,
+} from "@/lib/status";
 import { getAdminServerCaller } from "@/server/trpc-admin";
 
 export const dynamic = "force-dynamic";
 
-type Status =
-  | "DRAFT"
-  | "SIGNED"
-  | "PENDING_REVIEW"
-  | "SUBMITTED"
-  | "APPROVED"
-  | "PAID"
-  | "REJECTED"
-  | "EXPIRED";
-
-const STATUS_LABELS: Record<Status, string> = {
-  DRAFT: "Entwurf",
-  SIGNED: "Unterschrieben",
-  PENDING_REVIEW: "Kanzlei-Prüfung",
-  SUBMITTED: "Beim HZA",
-  APPROVED: "Bewilligt",
-  PAID: "Ausgezahlt",
-  REJECTED: "Abgelehnt",
-  EXPIRED: "Abgelaufen",
-};
-
-const STATUS_BADGE: Record<Status, string> = {
-  DRAFT: "bg-slate-100 text-slate-600",
-  SIGNED: "bg-amber-100 text-amber-800",
-  PENDING_REVIEW: "bg-blue-100 text-blue-800",
-  SUBMITTED: "bg-indigo-100 text-indigo-800",
-  APPROVED: "bg-emerald-100 text-emerald-800",
-  PAID: "bg-emerald-200 text-emerald-900",
-  REJECTED: "bg-red-100 text-red-800",
-  EXPIRED: "bg-slate-200 text-slate-500",
-};
-
 type PageProps = {
   searchParams?: { status?: string };
 };
-
-function formatEur(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
-  return Number(n).toLocaleString("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  });
-}
 
 function formatDate(d: Date | null | undefined): string {
   if (!d) return "—";
@@ -59,105 +28,132 @@ function formatDate(d: Date | null | undefined): string {
 }
 
 export default async function EingangPage({ searchParams }: PageProps) {
-  const statusFilter = (searchParams?.status ?? "PENDING_REVIEW") as Status;
+  const raw = searchParams?.status ?? "PENDING_REVIEW";
+  const statusFilter = isApplicationStatus(raw) ? raw : "PENDING_REVIEW";
 
   const caller = await getAdminServerCaller();
-  const apps = await caller.admin.list({ status: statusFilter });
+  const [apps, counts] = await Promise.all([
+    caller.admin.list({ status: statusFilter }),
+    caller.admin.counts(),
+  ]);
 
   return (
     <div>
-      <div className="mb-4 flex items-end justify-between">
+      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Antrags-Eingang
-          </h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold tracking-tight">Antrags-Eingang</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             {apps.length} {apps.length === 1 ? "Vorgang" : "Vorgänge"} mit Status{" "}
-            <strong className="text-slate-700">
-              {STATUS_LABELS[statusFilter]}
-            </strong>
+            <span className="font-medium text-ink">
+              {STATUS_META[statusFilter].label}
+            </span>
           </p>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {(Object.keys(STATUS_LABELS) as Status[]).map((s) => (
-            <Link
-              key={s}
-              href={`/admin/eingang?status=${s}`}
-              className={
-                s === statusFilter
-                  ? "rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white"
-                  : "rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
-              }
-            >
-              {STATUS_LABELS[s]}
-            </Link>
-          ))}
-        </div>
+        <nav
+          aria-label="Nach Status filtern"
+          className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1"
+        >
+          {APPLICATION_STATUSES.map((s) => {
+            const active = s === statusFilter;
+            return (
+              <Link
+                key={s}
+                href={`/admin/eingang?status=${s}`}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                  active
+                    ? "border-ink bg-ink text-ink-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-input hover:text-ink",
+                )}
+              >
+                {STATUS_META[s].label}
+                <span
+                  className={cn(
+                    "tnum rounded px-1 text-[11px]",
+                    active ? "bg-ink-foreground/15" : "bg-muted",
+                  )}
+                >
+                  {counts[s]}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
 
       {apps.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
-          <Inbox className="mx-auto h-8 w-8 text-slate-300" />
-          <p className="mt-2 text-sm text-slate-500">
-            Aktuell keine Anträge mit diesem Status.
+        <div className="rounded-xl border border-dashed border-input bg-card p-12 text-center">
+          <Inbox className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
+          <p className="mt-2 text-sm text-muted-foreground">
+            Keine Anträge mit Status „{STATUS_META[statusFilter].label}“.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="tnum w-full min-w-[760px] text-sm">
+            <thead className="border-b border-border bg-muted text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-4 py-3">Mandant</th>
-                <th className="px-4 py-3">Jahr</th>
-                <th className="px-4 py-3 text-right">Auszahlung</th>
-                <th className="px-4 py-3">Eingegangen</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">1456?</th>
-                <th className="px-4 py-3"></th>
+                <th scope="col" className="px-4 py-2.5 font-medium">Mandant</th>
+                <th scope="col" className="px-4 py-2.5 font-medium">Jahr</th>
+                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                  Erstattung
+                </th>
+                <th scope="col" className="px-4 py-2.5 font-medium">Eingegangen</th>
+                <th scope="col" className="px-4 py-2.5 font-medium">Status</th>
+                <th scope="col" className="px-4 py-2.5 font-medium">Hinweise</th>
+                <th scope="col" className="w-10 px-4 py-2.5">
+                  <span className="sr-only">Öffnen</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {apps.map((a) => (
-                <tr key={a.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-slate-900">
-                      {a.firmenname ?? "—"}
-                    </div>
-                    <div className="text-xs text-slate-500">{a.email ?? "—"}</div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {a.antragsjahr ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-900">
-                    {formatEur(a.nettoAuszahlung ? Number(a.nettoAuszahlung) : null)}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">
-                    {formatDate(a.submittedAt ?? a.mandatSignedAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[a.status as Status]}`}
-                    >
-                      {STATUS_LABELS[a.status as Status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs">
-                    {a.triageEnergieAnDritte ? (
-                      <span className="text-amber-700">⚠ ja</span>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/admin/${a.id}`}
-                      className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white hover:bg-slate-800"
-                    >
-                      Öffnen
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-border">
+              {apps.map((a) => {
+                const meta = statusMeta(a.status);
+                const erstattung =
+                  a.bruttoErstattung !== null
+                    ? erstattungNachSelbstbehalt({
+                        bruttoErstattung: Number(a.bruttoErstattung),
+                        sockel: 250,
+                      })
+                    : null;
+                return (
+                  <tr
+                    key={a.id}
+                    className="relative transition-colors focus-within:bg-secondary/50 hover:bg-secondary/50"
+                  >
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/admin/${a.id}`}
+                        className="font-medium text-ink after:absolute after:inset-0 focus-visible:ring-0"
+                      >
+                        {a.firmenname ?? "Ohne Firmenname"}
+                      </Link>
+                      <div className="text-xs text-muted-foreground">{a.email ?? "—"}</div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{a.antragsjahr ?? "—"}</td>
+                    <td className="px-4 py-3 text-right font-medium text-ink">
+                      {erstattung !== null ? formatEur(erstattung) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDate(a.submittedAt ?? a.mandatSignedAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={meta.badge}>{meta.label}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {a.triageEnergieAnDritte ? (
+                        <Badge variant="warning">Nutzenergie an Dritte</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

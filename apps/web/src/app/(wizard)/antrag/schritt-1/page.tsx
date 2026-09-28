@@ -62,15 +62,15 @@ export default async function Schritt1Page({ searchParams }: Props) {
 
       <div className="mx-auto max-w-3xl">
         {nachTriage ? (
-          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-success/30 bg-success-soft px-3 py-2 text-sm text-success">
             <CheckCircle2 className="h-4 w-4" />
             Erklärungen gespeichert. Ihr finaler Anspruch steht.
           </div>
         ) : null}
 
         <div className="mb-4 flex items-center justify-between text-xs">
-          <div className="text-slate-500">
-            Branche: <span className="text-slate-700">{brancheLabel}</span>
+          <div className="text-muted-foreground">
+            Branche: <span className="text-foreground">{brancheLabel}</span>
           </div>
           <AntragsjahrPicker
             current={antragsjahr}
@@ -87,12 +87,12 @@ export default async function Schritt1Page({ searchParams }: Props) {
             <Button
               type="submit"
               size="lg"
-              className="w-full bg-blue-700 text-base text-white hover:bg-blue-800"
+              className="w-full bg-primary text-base text-white hover:bg-primary/90"
             >
               Erklärungen bestätigen und weiter
               <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
-            <p className="mt-2 text-center text-xs text-slate-500">
+            <p className="mt-2 text-center text-xs text-muted-foreground">
               Nächster Schritt: Firmendaten und Vollmacht. Dauert 2 Minuten.
             </p>
           </form>
@@ -104,28 +104,28 @@ export default async function Schritt1Page({ searchParams }: Props) {
             <Button
               type="submit"
               size="lg"
-              className="w-full bg-blue-700 text-base text-white hover:bg-blue-800"
+              className="w-full bg-primary text-base text-white hover:bg-primary/90"
             >
               Online-Antrag starten
               <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
-            <p className="mt-2 text-center text-xs text-slate-500">
+            <p className="mt-2 text-center text-xs text-muted-foreground">
               Nächster Schritt: Stromrechnung hochladen. Dauert 2 Minuten.
             </p>
           </form>
         )}
 
-        <div className="mt-6 flex flex-col items-center gap-2 text-xs text-slate-500 sm:flex-row sm:justify-center sm:gap-6">
+        <div className="mt-6 flex flex-col items-center gap-2 text-xs text-muted-foreground sm:flex-row sm:justify-center sm:gap-6">
           <Link
             href="/antrag/schritt-2/lieferstellen?ohne-rechnung=1"
-            className="inline-flex items-center gap-1.5 hover:text-slate-900"
+            className="inline-flex items-center gap-1.5 hover:text-foreground"
           >
             <FileText className="h-3.5 w-3.5" />
             Ich habe gerade keine Rechnung zur Hand
           </Link>
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 hover:text-slate-900"
+            className="inline-flex items-center gap-1.5 hover:text-foreground"
           >
             <RefreshCcw className="h-3.5 w-3.5" />
             Verbrauch ändern und neu berechnen

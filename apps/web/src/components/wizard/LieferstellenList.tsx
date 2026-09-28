@@ -32,7 +32,7 @@ export function LieferstellenList({ initial }: Props) {
         type="button"
         onClick={addLieferstelle}
         disabled={pending}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-400 hover:bg-white disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-input px-4 py-2 text-sm font-medium text-foreground hover:border-input hover:bg-white disabled:opacity-50"
       >
         <Plus className="h-4 w-4" />
         Weitere Lieferstelle hinzufügen

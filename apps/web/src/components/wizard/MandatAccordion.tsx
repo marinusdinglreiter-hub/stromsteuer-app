@@ -11,17 +11,17 @@ type Props = {
 export function MandatAccordion({ title, children }: Props) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
+    <div className="rounded-lg border border-border bg-white">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-900"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-foreground"
       >
         <span className="inline-flex items-center gap-2">
-          <FileText className="h-4 w-4 text-slate-400" />
+          <FileText className="h-4 w-4 text-muted-foreground" />
           {title}
         </span>
-        <span className="inline-flex items-center gap-1 text-xs font-normal text-slate-500">
+        <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
           {open ? (
             <>
               Schließen <ChevronUp className="h-3.5 w-3.5" />
@@ -34,7 +34,7 @@ export function MandatAccordion({ title, children }: Props) {
         </span>
       </button>
       {open ? (
-        <div className="border-t border-slate-100 px-4 py-3 text-xs leading-relaxed text-slate-600">
+        <div className="border-t border-border px-4 py-3 text-xs leading-relaxed text-muted-foreground">
           {children}
         </div>
       ) : null}

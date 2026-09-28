@@ -29,7 +29,7 @@ export function AntragsjahrPicker({ current, branche, geschaetzteKwh }: Props) {
 
   return (
     <form ref={formRef} className="inline-flex items-center gap-2 text-sm">
-      <label htmlFor="antragsjahr" className="text-slate-600">
+      <label htmlFor="antragsjahr" className="text-muted-foreground">
         Verbrauchsjahr:
       </label>
       <input type="hidden" name="branche" value={branche} />
@@ -40,7 +40,7 @@ export function AntragsjahrPicker({ current, branche, geschaetzteKwh }: Props) {
         defaultValue={current}
         onChange={handleChange}
         disabled={pending}
-        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+        className="rounded-md border border-input bg-white px-2 py-1 text-sm font-medium text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25"
       >
         {jahre.map((jahr) => (
           <option key={jahr} value={jahr}>
@@ -49,7 +49,7 @@ export function AntragsjahrPicker({ current, branche, geschaetzteKwh }: Props) {
         ))}
       </select>
       {pending ? (
-        <span className="text-xs text-slate-400">speichert…</span>
+        <span className="text-xs text-muted-foreground">speichert…</span>
       ) : null}
     </form>
   );

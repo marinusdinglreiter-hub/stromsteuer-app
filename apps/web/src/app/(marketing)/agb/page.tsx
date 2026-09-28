@@ -7,8 +7,8 @@ export const metadata = {
 /** Stub. Inhalt wird durch Partnerkanzlei finalisiert vor Live-Schaltung. */
 export default function AgbPage() {
   return (
-    <article className="container max-w-2xl py-12 text-sm leading-relaxed text-slate-700">
-      <h1 className="mb-6 text-3xl font-bold text-slate-900">
+    <article className="container max-w-2xl py-12 text-sm leading-relaxed text-foreground">
+      <h1 className="mb-6 text-3xl font-bold text-foreground">
         Allgemeine Geschäftsbedingungen
       </h1>
 
@@ -63,7 +63,7 @@ export default function AgbPage() {
         </p>
       </Section>
 
-      <p className="mt-10 text-xs italic text-slate-500">
+      <p className="mt-10 text-xs italic text-muted-foreground">
         Hinweis: Diese AGB sind ein Platzhalter und werden vor Live-Schaltung
         durch die Partnerkanzlei finalisiert.
       </p>
@@ -80,7 +80,7 @@ function Section({
 }) {
   return (
     <section className="mb-6">
-      <h2 className="mb-2 text-base font-semibold text-slate-900">{title}</h2>
+      <h2 className="mb-2 text-base font-semibold text-foreground">{title}</h2>
       <div className="text-sm">{children}</div>
     </section>
   );

@@ -48,41 +48,41 @@ export function TriageCard({
   return (
     <section
       aria-labelledby={headerId}
-      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+      className="rounded-xl border border-border bg-white p-5 shadow-sm"
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning-soft text-warning-foreground">
           <Icon className="h-5 w-5" />
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-1.5">
-            <h3 id={headerId} className="text-sm font-semibold text-slate-900">
+            <h3 id={headerId} className="text-sm font-semibold text-foreground">
               {title}
             </h3>
             {tooltip ? (
               <span
                 title={tooltip}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-muted-foreground hover:text-muted-foreground"
               >
                 <HelpCircle className="h-4 w-4" />
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-xs text-slate-500">{description}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-4 rounded-lg bg-slate-50 px-4 py-3">
-        <p className="text-sm text-slate-700">{question}</p>
+      <div className="mt-4 flex items-center justify-between gap-4 rounded-lg bg-muted px-4 py-3">
+        <p className="text-sm text-foreground">{question}</p>
         <YesNoToggle answer={answer} onChange={onAnswerChange} />
       </div>
 
       {answer === true && estimate ? (
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_220px]">
-          <label className="text-xs text-slate-600">
+          <label className="text-xs text-muted-foreground">
             {estimate.label}
             {estimate.hint ? (
-              <span className="ml-1 text-slate-400">— {estimate.hint}</span>
+              <span className="ml-1 text-muted-foreground">— {estimate.hint}</span>
             ) : null}
           </label>
           <div className="relative">
@@ -96,14 +96,14 @@ export function TriageCard({
                 estimate.onChange(Math.max(0, Number(e.target.value) || 0))
               }
               placeholder="0"
-              className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-12 text-right text-sm tabular-nums focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+              className="block w-full rounded-md border border-input bg-white px-3 py-2 pr-12 text-right text-sm tabular-nums focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25"
             />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
               kWh
             </span>
           </div>
           {estimate.value > 0 ? (
-            <div className="col-span-full text-xs text-slate-400">
+            <div className="col-span-full text-xs text-muted-foreground">
               Ihre Angabe: {formatKwh(estimate.value)}
             </div>
           ) : null}
@@ -123,15 +123,15 @@ function YesNoToggle({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <div className="inline-flex overflow-hidden rounded-md border border-slate-200 bg-white text-xs font-semibold">
+    <div className="inline-flex overflow-hidden rounded-md border border-border bg-white text-xs font-semibold">
       <button
         type="button"
         onClick={() => onChange(true)}
         className={cn(
           "px-4 py-1.5 transition-colors",
           answer === true
-            ? "bg-emerald-600 text-white"
-            : "text-slate-600 hover:bg-slate-50",
+            ? "bg-success text-white"
+            : "text-muted-foreground hover:bg-muted",
         )}
         aria-pressed={answer === true}
       >
@@ -141,10 +141,10 @@ function YesNoToggle({
         type="button"
         onClick={() => onChange(false)}
         className={cn(
-          "border-l border-slate-200 px-4 py-1.5 transition-colors",
+          "border-l border-border px-4 py-1.5 transition-colors",
           answer === false
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:bg-slate-50",
+            ? "bg-ink text-white"
+            : "text-muted-foreground hover:bg-muted",
         )}
         aria-pressed={answer === false}
       >
@@ -156,10 +156,10 @@ function YesNoToggle({
 
 function HintBanner({ hint }: { hint: TriageStatusHint }) {
   const styles = {
-    info: "border-blue-200 bg-blue-50 text-blue-800",
-    warning: "border-amber-200 bg-amber-50 text-amber-900",
-    danger: "border-red-200 bg-red-50 text-red-800",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    info: "border-primary/25 bg-secondary text-ink",
+    warning: "border-warning/30 bg-warning-soft text-warning-foreground",
+    danger: "border-destructive/30 bg-destructive-soft text-destructive",
+    success: "border-success/30 bg-success-soft text-success",
   }[hint.variant];
 
   return (

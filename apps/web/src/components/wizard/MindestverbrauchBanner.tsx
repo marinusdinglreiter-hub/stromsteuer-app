@@ -20,30 +20,30 @@ export function MindestverbrauchBanner({
 
   return (
     <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="text-xs uppercase tracking-wide text-slate-500">
+      <div className="rounded-xl border border-border bg-white p-4">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">
           {anzahlLieferstellen === 1
             ? "1 Lieferstelle"
             : `${anzahlLieferstellen} Lieferstellen`}{" "}
           · Antragsjahr {antragsjahr}
         </div>
-        <div className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
+        <div className="mt-1 text-2xl font-bold tabular-nums text-foreground">
           {formatKwh(summe)}
         </div>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="text-xs uppercase tracking-wide text-slate-500">
+      <div className="rounded-xl border border-border bg-white p-4">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">
           Mindestverbrauch (wirtschaftlich)
         </div>
-        <div className="mt-1 text-2xl font-bold tabular-nums text-slate-500">
+        <div className="mt-1 text-2xl font-bold tabular-nums text-muted-foreground">
           {formatKwh(SCHWELLE_KWH)}
         </div>
       </div>
       <div
         className={
           erfuellt
-            ? "flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800"
-            : "flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900"
+            ? "flex items-center gap-2 rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-success"
+            : "flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-warning-foreground"
         }
       >
         {erfuellt ? (

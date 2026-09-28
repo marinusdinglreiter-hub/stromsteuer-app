@@ -11,8 +11,8 @@ export const metadata = {
  */
 export default function DatenschutzPage() {
   return (
-    <article className="container max-w-2xl py-12 text-sm leading-relaxed text-slate-700">
-      <h1 className="mb-6 text-3xl font-bold text-slate-900">
+    <article className="container max-w-2xl py-12 text-sm leading-relaxed text-foreground">
+      <h1 className="mb-6 text-3xl font-bold text-foreground">
         Datenschutzerklärung
       </h1>
 
@@ -67,7 +67,7 @@ export default function DatenschutzPage() {
         </p>
       </Section>
 
-      <p className="mt-10 text-xs italic text-slate-500">
+      <p className="mt-10 text-xs italic text-muted-foreground">
         Hinweis: Diese Datenschutzerklärung ist ein Platzhalter und wird vor
         Live-Schaltung anwaltlich finalisiert.
       </p>
@@ -84,7 +84,7 @@ function Section({
 }) {
   return (
     <section className="mb-6">
-      <h2 className="mb-2 text-base font-semibold text-slate-900">{title}</h2>
+      <h2 className="mb-2 text-base font-semibold text-foreground">{title}</h2>
       <div className="text-sm">{children}</div>
     </section>
   );

@@ -1,6 +1,8 @@
 "use client";
 
 import { Button } from "@stromsteuer/ui/button";
+import { Callout } from "@stromsteuer/ui/callout";
+import { Input } from "@stromsteuer/ui/input";
 import {
   Banknote,
   CheckCheck,
@@ -11,6 +13,7 @@ import {
 import { useState, useTransition } from "react";
 
 import { adminUpdateStatusAction } from "@/app/admin/actions";
+import { statusMeta } from "@/lib/status";
 
 type Props = {
   applicationId: string;
@@ -24,35 +27,40 @@ const ACTIONS: {
   label: string;
   icon: typeof FileCheck;
   needsAmount?: boolean;
-  className: string;
+  destructive?: boolean;
 }[] = [
   {
     key: "SUBMITTED",
     label: "Beim HZA eingereicht",
     icon: FileCheck,
-    className: "border-indigo-300 text-indigo-700 hover:bg-indigo-50",
   },
   {
     key: "APPROVED",
     label: "Bescheid: bewilligt",
     icon: CheckCheck,
     needsAmount: true,
-    className: "border-emerald-300 text-emerald-700 hover:bg-emerald-50",
   },
   {
     key: "PAID",
     label: "Auszahlung erfolgt",
     icon: Banknote,
     needsAmount: true,
-    className: "border-emerald-400 bg-emerald-600 text-white hover:bg-emerald-700",
   },
   {
     key: "REJECTED",
     label: "Antrag abgelehnt",
     icon: XCircle,
-    className: "border-red-300 text-red-700 hover:bg-red-50",
+    destructive: true,
   },
 ];
+
+/** Der naheliegende naechste Schritt je Status bekommt den Primaer-Button. */
+const NAECHSTER: Partial<Record<string, NextStatus>> = {
+  SIGNED: "SUBMITTED",
+  PENDING_REVIEW: "SUBMITTED",
+  SUBMITTED: "APPROVED",
+  APPROVED: "PAID",
+};
 
 export function StatusActions({ applicationId, currentStatus }: Props) {
   const [pending, startTransition] = useTransition();
@@ -92,59 +100,58 @@ export function StatusActions({ applicationId, currentStatus }: Props) {
     });
   }
 
+  const naechster = NAECHSTER[currentStatus];
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="mb-2 text-sm font-semibold text-slate-900">
-        Status-Aktionen
-      </div>
-      <p className="mb-3 text-xs text-slate-500">
-        Aktueller Status: <strong>{currentStatus}</strong>. Jede Aktion
-        triggert eine Mail an den Mandanten.
+    <section className="rounded-xl border border-border bg-card p-5">
+      <h2 className="text-sm font-semibold">Status ändern</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Aktuell: <span className="font-medium text-ink">{statusMeta(currentStatus).label}</span>.
+        Jede Änderung schickt dem Mandanten eine E-Mail.
       </p>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="mt-4 space-y-3">
         {ACTIONS.map((a) => (
-          <div
-            key={a.key}
-            className="rounded-md border border-slate-100 bg-slate-50 p-2.5"
-          >
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
-              <a.icon className="h-3.5 w-3.5" />
-              {a.label}
-            </div>
+          <div key={a.key} className="flex flex-col gap-2 sm:flex-row sm:items-center">
             {a.needsAmount ? (
-              <div className="mt-2 flex items-center gap-1">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={amounts[a.key]}
-                  onChange={(e) =>
-                    setAmounts((prev) => ({ ...prev, [a.key]: e.target.value }))
-                  }
-                  placeholder="HZA-Betrag (€)"
-                  className="block w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
-                />
-              </div>
+              <Input
+                type="text"
+                inputMode="decimal"
+                aria-label={`HZA-Betrag für „${a.label}“`}
+                value={amounts[a.key]}
+                onChange={(e) =>
+                  setAmounts((prev) => ({ ...prev, [a.key]: e.target.value }))
+                }
+                placeholder="HZA-Betrag in €"
+                className="tnum h-9 sm:w-40"
+              />
             ) : null}
             <Button
               type="button"
+              size="sm"
               onClick={() => handleClick(a.key)}
               disabled={pending}
-              variant="outline"
-              className={`mt-2 w-full ${a.className}`}
+              variant={a.key === naechster ? "default" : "outline"}
+              className={
+                a.destructive
+                  ? "flex-1 justify-start text-destructive hover:bg-destructive-soft hover:text-destructive"
+                  : "flex-1 justify-start"
+              }
             >
               {pending && activeAction === a.key ? (
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              ) : null}
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <a.icon className="h-3.5 w-3.5" aria-hidden />
+              )}
               {a.label}
             </Button>
           </div>
         ))}
       </div>
       {error ? (
-        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+        <Callout variant="danger" className="mt-3 text-xs">
           {error}
-        </div>
+        </Callout>
       ) : null}
-    </div>
+    </section>
   );
 }

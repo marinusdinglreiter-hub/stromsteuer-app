@@ -107,57 +107,66 @@ function formatDate(d: Date | null | undefined): string | null {
   });
 }
 
+const STATE_TEXT: Record<StatusStep["state"], string> = {
+  done: "Erledigt",
+  active: "In Bearbeitung",
+  pending: "Steht aus",
+  rejected: "Abgelehnt",
+};
+
 export function StatusTimeline({ steps }: { steps: StatusStep[] }) {
   return (
-    <ol className="space-y-3">
-      {steps.map((step) => {
+    <ol>
+      {steps.map((step, idx) => {
         const Icon = step.icon;
+        const last = idx === steps.length - 1;
+        const datum = formatDate(step.date);
         return (
           <li
             key={step.key}
-            className={cn(
-              "flex items-start gap-3 rounded-xl border p-3",
-              step.state === "done" && "border-emerald-200 bg-emerald-50/40",
-              step.state === "active" && "border-blue-200 bg-blue-50/40",
-              step.state === "pending" && "border-slate-200 bg-white",
-              step.state === "rejected" && "border-red-200 bg-red-50",
-            )}
+            className="relative flex gap-3 pb-5 last:pb-0"
+            aria-current={step.state === "active" ? "step" : undefined}
           >
+            {!last ? (
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute left-[15px] top-8 h-[calc(100%-2rem)] w-px",
+                  step.state === "done" ? "bg-success" : "bg-border",
+                )}
+              />
+            ) : null}
             <span
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                step.state === "done" && "bg-emerald-600 text-white",
-                step.state === "active" && "bg-blue-700 text-white",
-                step.state === "pending" && "bg-slate-200 text-slate-500",
-                step.state === "rejected" && "bg-red-600 text-white",
+                "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                step.state === "done" && "bg-success text-success-foreground",
+                step.state === "active" && "bg-primary text-primary-foreground ring-4 ring-secondary",
+                step.state === "pending" && "border border-input bg-background text-muted-foreground",
+                step.state === "rejected" && "bg-destructive text-destructive-foreground",
               )}
             >
               {step.state === "done" ? (
-                <Check className="h-4 w-4" />
+                <Check className="h-4 w-4" aria-hidden />
               ) : (
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" aria-hidden />
               )}
             </span>
-            <div className="flex-1">
+            <div className="min-w-0 flex-1 pt-1">
               <div
                 className={cn(
-                  "text-sm font-semibold",
-                  step.state === "rejected" ? "text-red-800" : "text-slate-900",
+                  "text-sm font-medium",
+                  step.state === "rejected"
+                    ? "text-destructive"
+                    : step.state === "pending"
+                      ? "text-muted-foreground"
+                      : "text-ink",
                 )}
               >
                 {step.label}
               </div>
-              <div className="text-xs text-slate-500">
-                {step.state === "done"
-                  ? "Erledigt"
-                  : step.state === "active"
-                    ? "In Bearbeitung"
-                    : step.state === "rejected"
-                      ? "Abgelehnt"
-                      : "Steht aus"}
-                {formatDate(step.date) ? (
-                  <span> · {formatDate(step.date)}</span>
-                ) : null}
+              <div className="tnum text-xs text-muted-foreground">
+                {STATE_TEXT[step.state]}
+                {datum ? <span> · {datum}</span> : null}
               </div>
             </div>
           </li>

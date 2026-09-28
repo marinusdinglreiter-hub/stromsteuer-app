@@ -141,7 +141,7 @@ export const SignaturCanvas = forwardRef<SignaturCanvasHandle, Props>(
     );
 
     return (
-      <div className="relative rounded-md border border-slate-300 bg-white">
+      <div className="relative rounded-md border border-input bg-white">
         <canvas
           ref={canvasRef}
           onPointerDown={handlePointerDown}
@@ -158,7 +158,7 @@ export const SignaturCanvas = forwardRef<SignaturCanvasHandle, Props>(
           style={{ height }}
         />
         {!hasContent ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-muted-foreground/70">
             Mit Maus oder Finger unterschreiben
           </div>
         ) : null}

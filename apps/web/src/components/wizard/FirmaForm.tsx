@@ -96,7 +96,7 @@ export function FirmaForm({ initial }: { initial: FirmaInitial }) {
             placeholder="+49 …"
             className={INPUT}
           />
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-muted-foreground">
             Optional — falls wir Rückfragen haben
           </p>
         </Field>
@@ -143,13 +143,13 @@ export function FirmaForm({ initial }: { initial: FirmaInitial }) {
       <div className="flex items-center justify-between">
         <a
           href="/antrag/schritt-1"
-          className="text-sm font-medium text-slate-600 hover:text-slate-900"
+          className="text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           ← Zurück
         </a>
         <SubmitButton />
       </div>
-      <p className="text-right text-xs text-blue-700">
+      <p className="text-right text-xs text-primary">
         Letzter Schritt: Vollmacht unterschreiben.
       </p>
     </form>
@@ -157,7 +157,7 @@ export function FirmaForm({ initial }: { initial: FirmaInitial }) {
 }
 
 const INPUT =
-  "block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200";
+  "block w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25";
 
 function Section({
   icon: Icon,
@@ -170,8 +170,8 @@ function Section({
 }) {
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-muted-foreground">
           <Icon className="h-3.5 w-3.5" />
         </span>
         {title}
@@ -192,9 +192,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-700">
+      <span className="mb-1 block text-xs font-medium text-foreground">
         {label}
-        {required ? <span className="text-red-500"> *</span> : null}
+        {required ? <span className="text-destructive"> *</span> : null}
       </span>
       {children}
     </label>
@@ -208,7 +208,7 @@ function SubmitButton() {
       type="submit"
       size="lg"
       disabled={pending}
-      className="bg-blue-700 text-white hover:bg-blue-800"
+      className="bg-primary text-white hover:bg-primary/90"
     >
       {pending ? "Speichert…" : "Unternehmensdaten speichern und weiter"}
       <ArrowRight className="ml-1 h-4 w-4" />

@@ -48,15 +48,15 @@ export default async function ErklaerungenPage({ searchParams }: Props) {
       <Stepper current="pruefen" />
 
       <div className="mx-auto max-w-3xl">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:p-8">
           <div className="text-center">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-warning-soft text-warning-foreground">
               <ClipboardCheck className="h-6 w-6" />
             </div>
-            <h1 className="mt-3 text-2xl font-bold text-slate-900">
+            <h1 className="mt-3 text-2xl font-bold text-foreground">
               Sechs kurze Erklärungen
             </h1>
-            <p className="mx-auto mt-1 max-w-lg text-sm text-slate-600">
+            <p className="mx-auto mt-1 max-w-lg text-sm text-muted-foreground">
               Pflichtangaben für das Hauptzollamt. Tooltip-Symbole erläutern
               jede Frage. Bei „Privatnutzung" oder „E-Autos = Ja" geben Sie eine
               Schätzung an — die Software berechnet nichts für Sie.
@@ -64,7 +64,7 @@ export default async function ErklaerungenPage({ searchParams }: Props) {
           </div>
 
           {errorMessage ? (
-            <div className="mt-4 inline-flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <div className="mt-4 inline-flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive-soft px-3 py-2 text-sm text-destructive">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               {decodeURIComponent(errorMessage)}
             </div>

@@ -154,8 +154,8 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
     <div
       className={
         vollstaendig
-          ? "rounded-xl border border-emerald-200 bg-white shadow-sm"
-          : "rounded-xl border border-slate-200 bg-white shadow-sm"
+          ? "rounded-xl border border-success/30 bg-white shadow-sm"
+          : "rounded-xl border border-border bg-white shadow-sm"
       }
     >
       <button
@@ -164,15 +164,15 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
       >
         <div className="flex items-center gap-3">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-xs font-semibold text-white">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-ink text-xs font-semibold text-white">
             {index + 1}
           </span>
           <div>
-            <div className="text-sm font-semibold text-slate-900">
+            <div className="text-sm font-semibold text-foreground">
               {lieferstelle.firmenname || `Lieferstelle ${index + 1}`}
             </div>
             {vollstaendig ? (
-              <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
+              <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
                   {lieferstelle.adresse}
@@ -189,7 +189,7 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
                 </span>
               </div>
             ) : (
-              <div className="mt-0.5 text-xs text-slate-500">
+              <div className="mt-0.5 text-xs text-muted-foreground">
                 Noch unvollständig
               </div>
             )}
@@ -199,22 +199,22 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
           <span
             className={
               vollstaendig
-                ? "rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700"
-                : "rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+                ? "rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success"
+                : "rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
             }
           >
             {vollstaendig ? "Vollständig" : "Noch unvollständig"}
           </span>
           {open ? (
-            <ChevronUp className="h-4 w-4 text-slate-400" />
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-slate-400" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
         </div>
       </button>
 
       {open ? (
-        <div className="grid gap-6 border-t border-slate-100 px-4 py-5 lg:grid-cols-[1fr_280px]">
+        <div className="grid gap-6 border-t border-border px-4 py-5 lg:grid-cols-[1fr_280px]">
           <form action={formAction} className="grid gap-3">
             <input type="hidden" name="id" value={lieferstelle.id} />
             <FormField label="Firmenname" required>
@@ -224,7 +224,7 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
                 value={fields.firmenname}
                 onChange={(e) => setFields((f) => ({ ...f, firmenname: e.target.value }))}
                 placeholder="z. B. Musterfirma GmbH"
-                className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                className="block w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25"
               />
             </FormField>
             <FormField label="Adresse der Lieferstelle" required>
@@ -234,7 +234,7 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
                 value={fields.adresse}
                 onChange={(e) => setFields((f) => ({ ...f, adresse: e.target.value }))}
                 placeholder="Straße und Ort"
-                className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                className="block w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25"
               />
             </FormField>
             <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
@@ -246,7 +246,7 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
                   placeholder="54321"
                   inputMode="numeric"
                   pattern="\d{5}"
-                  className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                  className="block w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25"
                 />
               </FormField>
               <FormField label="Jahresverbrauch (kWh)" required>
@@ -259,18 +259,18 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
                   value={fields.jahresKwh}
                   onChange={(e) => setFields((f) => ({ ...f, jahresKwh: e.target.value }))}
                   placeholder="z. B. 80000"
-                  className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-right text-sm tabular-nums focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                  className="block w-full rounded-md border border-input bg-white px-3 py-2 text-right text-sm tabular-nums focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/25"
                 />
               </FormField>
             </div>
 
             {state && !state.ok ? (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <div className="rounded-md border border-destructive/30 bg-destructive-soft px-3 py-2 text-xs text-destructive">
                 {state.error}
               </div>
             ) : null}
             {state && state.ok ? (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              <div className="rounded-md border border-success/30 bg-success-soft px-3 py-2 text-xs text-success">
                 Gespeichert.
               </div>
             ) : null}
@@ -280,7 +280,7 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
                 type="button"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 disabled:opacity-50"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive disabled:opacity-50"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 Entfernen
@@ -292,18 +292,18 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
           <div
             className={`rounded-lg border-2 border-dashed p-4 transition-colors ${
               isDragging
-                ? "border-blue-400 bg-blue-50"
-                : "border-slate-300 bg-slate-50"
+                ? "border-primary bg-secondary"
+                : "border-input bg-muted"
             }`}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <div className="text-xs font-medium text-slate-700">
+            <div className="text-xs font-medium text-foreground">
               Rechnung dieser Lieferstelle hochladen
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               PDF, JPG, PNG · Drag &amp; Drop oder Datei auswählen
             </p>
 
@@ -320,7 +320,7 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadState.loading}
-              className={`mt-3 w-full transition-colors ${isDragging ? "border-blue-400 bg-blue-100 text-blue-700" : ""}`}
+              className={`mt-3 w-full transition-colors ${isDragging ? "border-primary bg-secondary text-primary" : ""}`}
             >
               {uploadState.loading ? (
                 <>
@@ -341,13 +341,13 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
             </Button>
 
             {uploadState.error ? (
-              <div className="mt-2 inline-flex items-start gap-1 text-xs text-red-600">
+              <div className="mt-2 inline-flex items-start gap-1 text-xs text-destructive">
                 <X className="mt-0.5 h-3 w-3 shrink-0" />
                 {uploadState.error}
               </div>
             ) : null}
             {uploadState.ocrInfo ? (
-              <div className="mt-2 text-xs italic text-slate-500">
+              <div className="mt-2 text-xs italic text-muted-foreground">
                 {uploadState.ocrInfo}
               </div>
             ) : null}
@@ -357,13 +357,13 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
             ) : null}
 
             {lieferstelle.belegFileKeys.length > 0 ? (
-              <ul className="mt-3 space-y-1 text-xs text-slate-600">
+              <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
                 {lieferstelle.belegFileKeys.map((key) => (
                   <li
                     key={key}
-                    className="inline-flex w-full items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1"
+                    className="inline-flex w-full items-center gap-1.5 rounded border border-border bg-white px-2 py-1"
                   >
-                    <FileText className="h-3 w-3 text-slate-400" />
+                    <FileText className="h-3 w-3 text-muted-foreground" />
                     <span className="truncate">
                       {key.split("/").pop() ?? key}
                     </span>
@@ -371,14 +371,14 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
                 ))}
               </ul>
             ) : (
-              <p className="mt-3 text-xs italic text-slate-500">
+              <p className="mt-3 text-xs italic text-muted-foreground">
                 Keine Rechnung? Kein Problem — die manuelle Eingabe links reicht aus.
               </p>
             )}
 
             {lieferstelle.ocrConfidence !== null &&
             lieferstelle.ocrConfidence < 0.7 ? (
-              <div className="mt-3 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">
+              <div className="mt-3 inline-flex items-center gap-1 rounded border border-warning/30 bg-warning-soft px-2 py-1 text-xs text-warning-foreground">
                 <Calendar className="h-3 w-3" />
                 OCR-Confidence niedrig — bitte Werte prüfen
               </div>
@@ -401,9 +401,9 @@ function FormField({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-700">
+      <span className="mb-1 block text-xs font-medium text-foreground">
         {label}
-        {required ? <span className="text-red-500"> *</span> : null}
+        {required ? <span className="text-destructive"> *</span> : null}
       </span>
       {children}
     </label>
@@ -416,7 +416,7 @@ function SaveButton() {
     <Button
       type="submit"
       disabled={pending}
-      className="bg-blue-700 text-white hover:bg-blue-800"
+      className="bg-primary text-white hover:bg-primary/90"
     >
       {pending ? "Speichert…" : "Lieferstelle speichern"}
     </Button>
@@ -429,8 +429,8 @@ function fmt(eur: number): string {
 
 /**
  * Zeigt nur die aus der Rechnung erkannten Rohwerte (kWh + ggf. Stromsteuer).
- * Bewusst KEIN Euro-Erstattungsbetrag: Sockel (250 €) und Honorar-Floor (500 €)
- * gelten einmal auf die Summe aller Lieferstellen, nicht pro Lieferstelle. Der
+ * Bewusst KEIN Euro-Erstattungsbetrag: Der Selbstbehalt (250 €) gilt einmal
+ * auf die Summe aller Lieferstellen, nicht pro Lieferstelle. Der
  * korrekte Betrag wird erst in den spaeteren Schritten ueber calculateErstattung
  * berechnet — so sieht der Nutzer nie einen abweichenden Betrag.
  */
@@ -442,11 +442,11 @@ function ErkannteWerteKarte({
   stromsteuerGezahlt: number | null;
 }) {
   return (
-    <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs">
-      <div className="mb-2 font-semibold text-blue-800">
+    <div className="mt-3 rounded-lg border border-primary/25 bg-secondary p-3 text-xs">
+      <div className="mb-2 font-semibold text-ink">
         Aus der Rechnung erkannt
       </div>
-      <div className="space-y-1 text-slate-700">
+      <div className="space-y-1 text-foreground">
         <div className="flex justify-between">
           <span>Jahresverbrauch</span>
           <span className="font-medium tabular-nums">
@@ -456,13 +456,13 @@ function ErkannteWerteKarte({
         {stromsteuerGezahlt !== null ? (
           <div className="flex justify-between">
             <span>Stromsteuer lt. Rechnung</span>
-            <span className="font-medium tabular-nums text-slate-500">
+            <span className="font-medium tabular-nums text-muted-foreground">
               {fmt(stromsteuerGezahlt)}
             </span>
           </div>
         ) : null}
       </div>
-      <p className="mt-2 text-slate-400">
+      <p className="mt-2 text-muted-foreground">
         Bitte Werte prüfen und speichern · Ihre Erstattung berechnen wir aus der
         Summe aller Lieferstellen.
       </p>

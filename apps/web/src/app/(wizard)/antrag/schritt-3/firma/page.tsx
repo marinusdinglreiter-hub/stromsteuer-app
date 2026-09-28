@@ -48,15 +48,15 @@ export default async function FirmaPage() {
     <>
       <Stepper current="unterschreiben" />
       <div className="mx-auto max-w-2xl">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm lg:p-8">
           <div className="text-center">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <Building2 className="h-6 w-6" />
             </div>
-            <h1 className="mt-3 text-2xl font-bold text-slate-900">
+            <h1 className="mt-3 text-2xl font-bold text-foreground">
               Fast geschafft: Ihre Firmendaten
             </h1>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-muted-foreground">
               Noch dieser Schritt und die Vollmacht, dann reichen wir Ihren
               Antrag ein.
             </p>

@@ -225,7 +225,7 @@ export function TriageForm({ initial }: { initial: TriageInitial }) {
         }
       />
 
-      <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+      <div className="rounded-md border border-border bg-muted p-3 text-xs text-muted-foreground">
         Ihr Auftrag gilt für das im Bestellvorgang angegebene Kalenderjahr und
         endet mit vollständiger Abwicklung des Erstattungsverfahrens. Für jedes
         weitere Kalenderjahr ist ein neuer Auftrag erforderlich.
@@ -236,7 +236,7 @@ export function TriageForm({ initial }: { initial: TriageInitial }) {
       <div className="mt-6 flex items-center justify-between">
         <a
           href="/antrag/schritt-2/lieferstellen"
-          className="text-sm font-medium text-slate-600 hover:text-slate-900"
+          className="text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           ← Zurück
         </a>
@@ -244,7 +244,7 @@ export function TriageForm({ initial }: { initial: TriageInitial }) {
           type="submit"
           size="lg"
           disabled={submitDisabled}
-          className="bg-blue-700 text-white hover:bg-blue-800"
+          className="bg-primary text-white hover:bg-primary/90"
         >
           {pending ? "Speichert…" : "Erstattung berechnen"}
           <ArrowRight className="ml-1 h-4 w-4" />

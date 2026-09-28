@@ -10,8 +10,8 @@ export const metadata = {
  */
 export default function ImpressumPage() {
   return (
-    <article className="container max-w-2xl py-12 text-sm leading-relaxed text-slate-700">
-      <h1 className="mb-6 text-3xl font-bold text-slate-900">Impressum</h1>
+    <article className="container max-w-2xl py-12 text-sm leading-relaxed text-foreground">
+      <h1 className="mb-6 text-3xl font-bold text-foreground">Impressum</h1>
 
       <Section title="Anbieter">
         <p>
@@ -26,7 +26,7 @@ export default function ImpressumPage() {
           <br />
           E-Mail: {BRAND.email}
         </p>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           Handelsregister: [Amtsgericht ..., HRB ...]
           <br />
           USt-IdNr.: [DE...]
@@ -48,7 +48,7 @@ export default function ImpressumPage() {
         <p>[Name, Funktion]</p>
       </Section>
 
-      <p className="mt-10 text-xs italic text-slate-500">
+      <p className="mt-10 text-xs italic text-muted-foreground">
         Hinweis: Dieses Impressum ist ein Platzhalter und wird vor öffentlicher
         Schaltung durch die Kanzlei finalisiert.
       </p>
@@ -65,7 +65,7 @@ function Section({
 }) {
   return (
     <section className="mb-6">
-      <h2 className="mb-2 text-base font-semibold text-slate-900">{title}</h2>
+      <h2 className="mb-2 text-base font-semibold text-foreground">{title}</h2>
       <div className="text-sm">{children}</div>
     </section>
   );
