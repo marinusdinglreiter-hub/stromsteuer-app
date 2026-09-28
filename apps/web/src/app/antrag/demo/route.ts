@@ -11,6 +11,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from "@/server/session";
 
+// Ohne das haelt Next den GET-Handler fuer statisch: Er wuerde beim Build
+// einmal ausgefuehrt (DB-Schreibzugriff) und alle Besucher bekaemen dieselbe
+// Session.
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const sessionToken = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
