@@ -1,157 +1,200 @@
 "use client";
 
-import { calculateErstattung } from "@stromsteuer/api/calc";
-import { Button } from "@stromsteuer/ui/button";
-import { TrendingUp, Zap } from "lucide-react";
-import Link from "next/link";
-import { useMemo, useState } from "react";
-
 import {
-  KWH_DEFAULT,
-  KWH_SLIDER_MAX,
-  KWH_STEP,
-  MINDEST_KWH_WIRTSCHAFTLICH,
-} from "@/config/antrag";
+  calculateErstattung,
+  ENTLASTUNGSSATZ_EUR_PRO_KWH,
+} from "@stromsteuer/api/calc";
+import { preisFuer } from "@stromsteuer/api/calc/preise";
+import { Callout } from "@stromsteuer/ui/callout";
+import Link from "next/link";
+import { useId, useMemo, useState } from "react";
+
+import { KWH_DEFAULT, KWH_SLIDER_MAX, KWH_STEP } from "@/config/antrag";
+import { BRAND } from "@/config/brand";
 import { BRANCHEN, DEFAULT_BRANCHE } from "@/data/branchen";
 import {
+  erstattungNachSelbstbehalt,
+  formatEur,
   formatEurRund,
   formatKwh,
-  wochenKostenloserStrom,
 } from "@/lib/format";
 
-const SLIDER_MIN = MINDEST_KWH_WIRTSCHAFTLICH;
-const SLIDER_MAX = KWH_SLIDER_MAX;
-const SLIDER_STEP = KWH_STEP;
-const DEFAULT_KWH = KWH_DEFAULT;
+/**
+ * Der Slider laeuft logarithmisch: Das Kernsegment 150–600 MWh soll nicht in
+ * den ersten Millimetern verschwinden, wie es bei einer linearen Skala bis
+ * 10 GWh der Fall waere.
+ */
+const SLIDER_MIN_KWH = 50_000;
+const SLIDER_STEPS = 1000;
+
+function kwhAusPosition(pos: number): number {
+  const kwh = SLIDER_MIN_KWH * (KWH_SLIDER_MAX / SLIDER_MIN_KWH) ** (pos / SLIDER_STEPS);
+  return Math.round(kwh / KWH_STEP) * KWH_STEP;
+}
+
+function positionAusKwh(kwh: number): number {
+  const k = Math.min(KWH_SLIDER_MAX, Math.max(SLIDER_MIN_KWH, kwh));
+  return Math.round(
+    (Math.log(k / SLIDER_MIN_KWH) / Math.log(KWH_SLIDER_MAX / SLIDER_MIN_KWH)) *
+      SLIDER_STEPS,
+  );
+}
+
+const SATZ_EUR_PRO_MWH = (ENTLASTUNGSSATZ_EUR_PRO_KWH * 1000).toLocaleString("de-DE", {
+  minimumFractionDigits: 2,
+});
 
 export function Calculator() {
   const [branche, setBranche] = useState(DEFAULT_BRANCHE);
-  const [kwh, setKwh] = useState(DEFAULT_KWH);
+  const [kwh, setKwh] = useState(KWH_DEFAULT);
+  const kwhId = useId();
+  const brancheId = useId();
 
   const calc = useMemo(() => calculateErstattung({ bruttoKwh: kwh }), [kwh]);
-  const wochen = useMemo(
-    () => wochenKostenloserStrom(kwh, calc.nettoAuszahlung),
-    [kwh, calc.nettoAuszahlung],
-  );
+  const erstattung = erstattungNachSelbstbehalt(calc);
+  const preis = useMemo(() => preisFuer(calc.nettoKwh / 1000), [calc.nettoKwh]);
 
-  const istWirtschaftlich = kwh >= MINDEST_KWH_WIRTSCHAFTLICH;
-
-  // /antrag/start legt eine Application an, setzt den Session-Cookie und
-  // redirected dann auf /antrag/schritt-1. Direkt-Aufruf von /antrag/schritt-1
-  // ohne Cookie wuerde sonst auf /antrag/start zurueckspringen.
+  const unterBaendern = preis.band === null;
+  const individuell = preis.band !== null && preis.preisEur === null;
   const ctaHref = `/antrag/start?kwh=${kwh}&branche=${branche}`;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg lg:p-7">
-      <div className="mb-5 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-          <TrendingUp className="h-5 w-5" />
-        </div>
+    <div className="rounded-xl border border-border bg-card p-5 shadow-[0_1px_3px_rgba(15,43,70,0.06)] sm:p-6">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-base font-semibold">Ihr Anspruch</h2>
+        <span className="text-xs text-muted-foreground">Vorläufige Berechnung</span>
+      </div>
+
+      <div className="mt-5 space-y-4">
         <div>
-          <div className="text-base font-semibold text-slate-900">
-            Erstattungsrechner
-          </div>
-          <div className="text-xs text-slate-500">
-            Ihr Ergebnis in Sekunden
-          </div>
+          <label htmlFor={brancheId} className="mb-1.5 block text-sm font-medium">
+            Branche
+          </label>
+          <select
+            id={brancheId}
+            value={branche}
+            onChange={(event) => setBranche(event.target.value)}
+            className="block h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/25 focus-visible:ring-offset-0"
+          >
+            {BRANCHEN.map((b) => (
+              <option key={b.value} value={b.value}>
+                {b.label}
+              </option>
+            ))}
+          </select>
         </div>
-      </div>
 
-      <label className="mb-4 block">
-        <span className="mb-1.5 block text-sm font-medium text-slate-700">
-          Branche
-        </span>
-        <select
-          value={branche}
-          onChange={(event) => setBranche(event.target.value)}
-          className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-        >
-          {BRANCHEN.map((b) => (
-            <option key={b.value} value={b.value}>
-              {b.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div className="mb-5">
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">
-          Ihr jährlicher Stromverbrauch
-        </label>
-        <div className="relative">
+        <div>
+          <label htmlFor={kwhId} className="mb-1.5 block text-sm font-medium">
+            Stromverbrauch pro Jahr
+          </label>
+          <div className="relative">
+            <input
+              id={kwhId}
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              value={kwh.toLocaleString("de-DE")}
+              onChange={(event) => {
+                const ziffern = event.target.value.replace(/\D/g, "").slice(0, 9);
+                setKwh(Number(ziffern) || 0);
+              }}
+              className="tnum block h-10 w-full rounded-md border border-input bg-background px-3 pr-14 text-right text-[15px] font-medium focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/25 focus-visible:ring-offset-0"
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+              kWh
+            </span>
+          </div>
           <input
-            type="number"
-            value={kwh}
+            type="range"
+            aria-label="Stromverbrauch pro Jahr (Schieberegler)"
+            aria-valuetext={formatKwh(kwh)}
             min={0}
-            max={SLIDER_MAX}
-            step={SLIDER_STEP}
-            onChange={(event) =>
-              setKwh(Math.max(0, Number(event.target.value) || 0))
-            }
-            className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-14 text-right text-base font-medium text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            max={SLIDER_STEPS}
+            step={1}
+            value={positionAusKwh(kwh)}
+            onChange={(event) => setKwh(kwhAusPosition(Number(event.target.value)))}
+            className="mt-3 w-full accent-[hsl(var(--primary))]"
           />
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500">
-            kWh
-          </span>
-        </div>
-        <input
-          type="range"
-          value={Math.min(SLIDER_MAX, Math.max(SLIDER_MIN, kwh))}
-          min={SLIDER_MIN}
-          max={SLIDER_MAX}
-          step={SLIDER_STEP}
-          onChange={(event) => setKwh(Number(event.target.value))}
-          className="mt-3 w-full accent-blue-600"
-        />
-        <div className="mt-1 flex justify-between text-xs text-slate-500">
-          <span>{formatKwh(SLIDER_MIN)}</span>
-          <span>{formatKwh(SLIDER_MAX)}</span>
-        </div>
-      </div>
-
-      <div className="mb-5 rounded-xl bg-slate-50 p-5 text-center">
-        {istWirtschaftlich ? (
-          <>
-            <div className="text-xs font-medium uppercase tracking-wide text-blue-700">
-              Ihre Nettoerstattung
-            </div>
-            <div className="my-2 text-4xl font-bold text-slate-900 lg:text-5xl">
-              {formatEurRund(calc.nettoAuszahlung)}
-            </div>
-            <div className="text-xs text-slate-500">
-              nach Erfolgshonorar — nur bei Erfolg
-            </div>
-            {wochen > 0 ? (
-              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                <Zap className="h-3.5 w-3.5" />
-                entspricht etwa <strong>{wochen} Wochen</strong> kostenlosem
-                Strom
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <div className="py-3">
-            <div className="text-sm font-medium text-slate-700">
-              Verbrauch unter wirtschaftlicher Schwelle
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              Erst ab {formatKwh(MINDEST_KWH_WIRTSCHAFTLICH)} pro Jahr lohnt
-              sich ein Antrag spürbar (250 € Sockel + Honorar-Floor).
-            </div>
+          <div className="tnum mt-1 flex justify-between text-xs text-muted-foreground">
+            <span>50 MWh</span>
+            <span>10 GWh</span>
           </div>
-        )}
+        </div>
       </div>
 
-      <Button
-        asChild
-        size="lg"
-        className="w-full bg-blue-700 text-white hover:bg-blue-800"
-        disabled={!istWirtschaftlich}
-      >
-        <Link href={ctaHref}>Online-Antrag starten →</Link>
-      </Button>
-      <p className="mt-2 text-center text-xs text-slate-500">
-        Kostenlos und unverbindlich. In wenigen Minuten fertig.
+      <dl className="tnum mt-5 divide-y divide-border border-t border-border text-sm">
+        <div className="flex justify-between py-2.5">
+          <dt className="text-muted-foreground">
+            Entlastung ({SATZ_EUR_PRO_MWH} €/MWh)
+          </dt>
+          <dd>{formatEur(calc.bruttoErstattung)}</dd>
+        </div>
+        <div className="flex justify-between py-2.5">
+          <dt className="text-muted-foreground">Gesetzlicher Selbstbehalt</dt>
+          <dd className="text-muted-foreground">− {formatEur(calc.sockel)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between py-3">
+          <dt className="font-medium text-ink">Erstattung an Sie</dt>
+          <dd className="text-2xl font-semibold tracking-tight text-success">
+            {formatEur(erstattung)}
+          </dd>
+        </div>
+      </dl>
+
+      {unterBaendern ? (
+        <Callout variant="neutral" className="mt-2">
+          {erstattung <= 0
+            ? "Unter 12.500 kWh liegt die Entlastung unter dem Selbstbehalt von 250 €."
+            : "Für einen Verbrauch unter 150 MWh bieten wir derzeit keinen Festpreis an, weil der Aufwand im Verhältnis zur Erstattung zu hoch wäre. Schreiben Sie uns, wenn Sie trotzdem Fragen haben."}
+        </Callout>
+      ) : (
+        <div className="mt-2 rounded-lg bg-muted px-4 py-3 text-sm">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">
+              Unsere Aufbereitung
+              {preis.band ? (
+                <span className="tnum">
+                  {" "}
+                  (Band {preis.band.vonMwh.toLocaleString("de-DE")}
+                  {preis.band.bisMwh
+                    ? `–${preis.band.bisMwh.toLocaleString("de-DE")}`
+                    : "+"}{" "}
+                  MWh)
+                </span>
+              ) : null}
+            </span>
+            <span className="tnum whitespace-nowrap font-medium text-ink">
+              {individuell ? "individuelles Angebot" : `${formatEurRund(preis.preisEur ?? 0)} fest`}
+            </span>
+          </div>
+          <div className="mt-1 flex justify-between gap-3 text-xs text-muted-foreground">
+            <span>Kanzlei für die Einreichung</span>
+            <span>eigene Rechnung</span>
+          </div>
+        </div>
+      )}
+
+      {unterBaendern ? (
+        <a
+          href={`mailto:${BRAND.email}?subject=${encodeURIComponent("Anfrage Stromsteuer-Entlastung")}`}
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md border border-input bg-background text-[15px] font-medium text-ink transition-colors hover:bg-muted"
+        >
+          Anfrage per E-Mail
+        </a>
+      ) : (
+        <Link
+          href={ctaHref}
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-primary text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Anspruch kostenlos prüfen
+        </Link>
+      )}
+
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        Satz und Selbstbehalt nach zoll.de, abgerufen am 16.09.2026. Die
+        Berechnung ist unverbindlich; über die Entlastung entscheidet das
+        Hauptzollamt. Preise zzgl. USt.
       </p>
     </div>
   );

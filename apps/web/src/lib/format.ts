@@ -29,21 +29,20 @@ export function formatKwh(value: number): string {
   return `${kwhFormatter.format(value)} kWh`;
 }
 
-/**
- * Marketing-Framing: wie viele Wochen "kostenloser Strom" entspricht die
- * Nettoerstattung (bei einem ueberschlaegigen Industriestrompreis von 0,18 €/kWh).
- * Faustformel — bewusst grob, dient nur dem Lead-Hook auf der Landing-Page.
- */
-const INDUSTRIE_STROMPREIS_EUR_PRO_KWH = 0.18;
-const WOCHEN_PRO_JAHR = 52;
+export function formatMwh(value: number): string {
+  return `${kwhFormatter.format(value)} MWh`;
+}
 
-export function wochenKostenloserStrom(
-  bruttoKwh: number,
-  nettoAuszahlungEur: number,
-): number {
-  if (bruttoKwh <= 0 || nettoAuszahlungEur <= 0) return 0;
-  const kostenProWoche =
-    (bruttoKwh * INDUSTRIE_STROMPREIS_EUR_PRO_KWH) / WOCHEN_PRO_JAHR;
-  if (kostenProWoche <= 0) return 0;
-  return Math.round(nettoAuszahlungEur / kostenProWoche);
+/**
+ * Erstattung, die beim Kunden ankommt: Entlastung minus Selbstbehalt.
+ * Gegen diesen Betrag vergleicht der Kunde unseren Festpreis (docs/10).
+ */
+export function erstattungNachSelbstbehalt(result: {
+  bruttoErstattung: number;
+  sockel: number;
+}): number {
+  return Math.max(
+    0,
+    Math.round((result.bruttoErstattung - result.sockel) * 100) / 100,
+  );
 }

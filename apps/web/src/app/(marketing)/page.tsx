@@ -1,15 +1,22 @@
-import { AnsprechpartnerBar } from "@/components/landing/AnsprechpartnerBar";
+import { Ablauf } from "@/components/landing/Ablauf";
+import { Faq } from "@/components/landing/Faq";
+import { Fristen } from "@/components/landing/Fristen";
 import { Hero } from "@/components/landing/Hero";
-import { PartnerStrip } from "@/components/landing/PartnerStrip";
-import { WarumCards } from "@/components/landing/WarumCards";
+import { Preistabelle } from "@/components/landing/Preistabelle";
+import { ZweiRechnungen } from "@/components/landing/ZweiRechnungen";
+
+/** Fristen und Resttage rechnen mit dem heutigen Datum. */
+export const revalidate = 3600;
 
 export default function HomePage() {
   return (
     <>
       <Hero />
-      <PartnerStrip />
-      <AnsprechpartnerBar />
-      <WarumCards />
+      <Ablauf />
+      <ZweiRechnungen />
+      <Preistabelle />
+      <Fristen />
+      <Faq />
     </>
   );
 }
