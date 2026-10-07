@@ -2,38 +2,79 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateErstattung,
-  HONORAR_FLOOR_EUR,
   istWirtschaftlich,
   MINDEST_KWH_WIRTSCHAFTLICH,
-  SOCKEL_EUR,
+  satzFuer,
 } from "./stromsteuer";
 
-describe("calculateErstattung — Screenshot-Verifikation", () => {
-  it("800.000 kWh ohne Abzuege => 13.529,25 € Auszahlung (EnergyIQ-Hero)", () => {
-    const result = calculateErstattung({ bruttoKwh: 800_000 });
+describe("calculateErstattung — Grundfall", () => {
+  it("800.000 kWh im Verbrauchsjahr 2025 => 16.000 € Entlastung, 15.750 € Auszahlung", () => {
+    const result = calculateErstattung({ verbrauchsjahr: 2025, bruttoKwh: 800_000 });
 
     expect(result.bruttoKwh).toBe(800_000);
     expect(result.nettoKwh).toBe(800_000);
+    expect(result.nettoMwh).toBe(800);
+    expect(result.satzEurProMwh).toBe(20);
     expect(result.bruttoErstattung).toBe(16_000);
     expect(result.sockel).toBe(250);
-    expect(result.honorar).toBe(2_220.75);
-    expect(result.honorarSatz).toBe(14.1);
-    expect(result.nettoAuszahlung).toBe(13_529.25);
+    expect(result.auszahlung).toBe(15_750);
   });
 
-  it("48.560 kWh ohne Abzuege => 221,20 € Auszahlung (Honorar-Floor greift)", () => {
-    const result = calculateErstattung({ bruttoKwh: 48_560 });
+  it("48.560 kWh => 971,20 € Entlastung, 721,20 € Auszahlung", () => {
+    const result = calculateErstattung({ verbrauchsjahr: 2025, bruttoKwh: 48_560 });
 
     expect(result.bruttoErstattung).toBe(971.2);
-    expect(result.honorar).toBe(HONORAR_FLOOR_EUR);
-    expect(result.honorarSatz).toBeGreaterThan(14.1); // Floor > Prozentsatz
-    expect(result.nettoAuszahlung).toBe(221.2);
+    expect(result.auszahlung).toBe(721.2);
+  });
+
+  it("enthaelt keine Honorar-Felder mehr", () => {
+    const result = calculateErstattung({ verbrauchsjahr: 2025, bruttoKwh: 800_000 });
+    expect(Object.keys(result).some((k) => /honorar|netto(a|A)uszahlung/.test(k))).toBe(
+      false,
+    );
+  });
+});
+
+describe("calculateErstattung — Satzwechsel", () => {
+  it("Verbrauchsjahr 2023 rechnet mit 5,13 €/MWh", () => {
+    const result = calculateErstattung({ verbrauchsjahr: 2023, bruttoKwh: 800_000 });
+    expect(result.satzEurProMwh).toBe(5.13);
+    expect(result.bruttoErstattung).toBe(4_104);
+  });
+
+  it("Verbrauchsjahr 2024 rechnet mit 20,00 €/MWh", () => {
+    const result = calculateErstattung({ verbrauchsjahr: 2024, bruttoKwh: 800_000 });
+    expect(result.satzEurProMwh).toBe(20);
+    expect(result.bruttoErstattung).toBe(16_000);
+  });
+
+  it("satzFuer wirft vor dem aeltesten Eintrag", () => {
+    expect(() => satzFuer(2005)).toThrow();
+  });
+});
+
+describe("calculateErstattung — Rundung", () => {
+  it("rundet nicht auf ganze MWh (500,499 MWh => 10.009,98 €)", () => {
+    const result = calculateErstattung({ verbrauchsjahr: 2025, bruttoKwh: 500_499 });
+    expect(result.nettoMwh).toBe(500.499);
+    expect(result.bruttoErstattung).toBe(10_009.98);
+  });
+
+  it("rundet halbe Cent kaufmaennisch auf (0,5 MWh × 5,13 € = 2,565 € => 2,57 €)", () => {
+    const result = calculateErstattung({ verbrauchsjahr: 2023, bruttoKwh: 500 });
+    expect(result.bruttoErstattung).toBe(2.57);
+  });
+
+  it("rundet unter einem halben Cent ab (123,457 MWh × 5,13 € => 633,33 €)", () => {
+    const result = calculateErstattung({ verbrauchsjahr: 2023, bruttoKwh: 123_457 });
+    expect(result.bruttoErstattung).toBe(633.33);
   });
 });
 
 describe("calculateErstattung — Abzuege", () => {
   it("zieht Privatnutzungs-kWh und E-Auto-kWh ab", () => {
     const result = calculateErstattung({
+      verbrauchsjahr: 2025,
       bruttoKwh: 100_000,
       privatnutzungKwh: 2_000,
       eAutoKwh: 5_000,
@@ -46,6 +87,7 @@ describe("calculateErstattung — Abzuege", () => {
 
   it("akzeptiert keine negativen Abzuege", () => {
     const result = calculateErstattung({
+      verbrauchsjahr: 2025,
       bruttoKwh: 100_000,
       privatnutzungKwh: -500,
       eAutoKwh: -1_000,
@@ -57,44 +99,31 @@ describe("calculateErstattung — Abzuege", () => {
 });
 
 describe("calculateErstattung — Randfaelle", () => {
-  it("Verbrauch unter Sockel-Schwelle => 0 € nach Sockel, Floor-Honorar trotzdem", () => {
-    // 5.000 kWh × 0,02 = 100 € < 250 € Sockel
-    const result = calculateErstattung({ bruttoKwh: 5_000 });
+  it("Entlastung unter dem Selbstbehalt => Auszahlung 0 €", () => {
+    // 5.000 kWh × 0,02 € = 100 € < 250 € Selbstbehalt
+    const result = calculateErstattung({ verbrauchsjahr: 2025, bruttoKwh: 5_000 });
 
     expect(result.bruttoErstattung).toBe(100);
-    // bruttoErstattung < Sockel => afterSockel = 0 => Honorar darf Auszahlung
-    // nicht in den Negativbereich druecken
-    expect(result.nettoAuszahlung).toBe(0);
+    expect(result.auszahlung).toBe(0);
+  });
+
+  it("knapp ueber dem Selbstbehalt (12.501 kWh => 0,02 €)", () => {
+    const result = calculateErstattung({ verbrauchsjahr: 2025, bruttoKwh: 12_501 });
+    expect(result.auszahlung).toBe(0.02);
   });
 
   it("Verbrauch = 0 kWh => alles 0", () => {
-    const result = calculateErstattung({ bruttoKwh: 0 });
+    const result = calculateErstattung({ verbrauchsjahr: 2025, bruttoKwh: 0 });
 
     expect(result.bruttoErstattung).toBe(0);
-    expect(result.nettoAuszahlung).toBe(0);
-    expect(result.honorarSatz).toBe(0);
-  });
-
-  it("Floor-Schwelle: prozentHonorar == 500 € bei 17.985 kWh netto-nach-Sockel", () => {
-    // afterSockel × 0,141 = 500 => afterSockel ≈ 3.546,10 €
-    // => bruttoErstattung ≈ 3.796,10 € => kWh ≈ 189.805
-    // Bei genau 189.806 kWh sollte der Prozentsatz knapp ueber 14,1 % liegen
-    const result = calculateErstattung({ bruttoKwh: 200_000 });
-
-    expect(result.honorarSatz).toBe(14.1);
-    expect(result.honorar).toBeGreaterThan(HONORAR_FLOOR_EUR);
-  });
-
-  it("Konstanten sind die offiziellen Werte", () => {
-    expect(SOCKEL_EUR).toBe(250);
-    expect(HONORAR_FLOOR_EUR).toBe(500);
+    expect(result.auszahlung).toBe(0);
   });
 });
 
 describe("istWirtschaftlich", () => {
-  it("40.000 kWh ist die Mindestschwelle", () => {
-    expect(MINDEST_KWH_WIRTSCHAFTLICH).toBe(40_000);
-    expect(istWirtschaftlich(39_999)).toBe(false);
-    expect(istWirtschaftlich(40_000)).toBe(true);
+  it("150.000 kWh ist die Mindestschwelle (kleinstes Preisband)", () => {
+    expect(MINDEST_KWH_WIRTSCHAFTLICH).toBe(150_000);
+    expect(istWirtschaftlich(149_999)).toBe(false);
+    expect(istWirtschaftlich(150_000)).toBe(true);
   });
 });

@@ -1,37 +1,31 @@
 /**
- * Stromsteuer-Erstattung nach § 9b StromStG — Partnerkanzlei-Modell.
+ * Stromsteuer-Entlastung nach § 9b StromStG — gesetzliche Berechnung.
+ *
+ * Nur die Erstattung. Unser Preis ist davon getrennt und haengt am
+ * Verbrauchsband, nicht am Ergebnis (calc/preise.ts, docs/10).
  *
  * Formel:
- *   bruttoErstattung   = (bruttoKwh - abzuegeKwh) * 0,02 €
- *   afterSockel        = max(0, bruttoErstattung - 250 €)
- *   prozentHonorar     = afterSockel * 0,141
- *   honorar            = max(500 €, prozentHonorar)   // Floor
- *   nettoAuszahlung    = max(0, afterSockel - honorar)
+ *   nettoKwh          = bruttoKwh - Abzuege (Privatnutzung, E-Auto)
+ *   nettoMwh          = nettoKwh / 1000, drei Dezimalstellen (verlustfrei)
+ *   bruttoErstattung  = nettoMwh * Satz, kaufmaennisch auf Cent gerundet
+ *   auszahlung        = max(0, bruttoErstattung - Selbstbehalt)
  *
- * Screenshot-Verifikation:
- *   800.000 kWh, keine Abzuege => 13.529,25 € Auszahlung
- *    48.560 kWh, keine Abzuege =>    221,20 € Auszahlung (Honorar-Floor greift)
+ * Rundung: Der Antrag rechnet in MWh, die Daten liegen in kWh. Nicht auf
+ * ganze MWh runden — das verschiebt bei 500 MWh bis zu 10 €. Gerechnet wird
+ * in ganzen Cent: kWh × Satz in Cent/MWh ist eine exakte Ganzzahl, geteilt
+ * durch 1000 und halb-aufwaerts gerundet.
  *
- * Beachte: Die Geldwerte werden auf 2 Nachkommastellen kaufmaennisch gerundet.
- * Mit den heutigen Konstanten (ganzzahlige kWh + Faktor 0,02 + 0,141) bleiben
- * die Zwischenwerte exakt darstellbar in IEEE-754; eine Decimal-Library ist
- * fuer das MVP nicht noetig. Falls die Konstanten dynamisch werden, auf
- * decimal.js wechseln.
+ * Beispiel Verbrauchsjahr 2025: 800.000 kWh => 16.000,00 € Entlastung,
+ * 15.750,00 € Auszahlung.
  */
 
-/** Entlastungssatz in EUR pro kWh (ab 2024 dauerhaft 20 €/MWh = 0,02 €/kWh). */
-export const ENTLASTUNGSSATZ_EUR_PRO_KWH = 0.02;
+import { satzFuer } from "./rates";
 
-/** Gesetzlicher Sockelbetrag in EUR pro Kalenderjahr (§ 9b Abs. 2 StromStG). */
-export const SOCKEL_EUR = 250;
-
-/** Honorar-Anteil an der Erstattung nach Sockel (Erfolgshonorar nach § 4a RVG). */
-export const HONORAR_QUOTE = 0.141;
-
-/** Mindesthonorar (Floor) der Partnerkanzlei in EUR. */
-export const HONORAR_FLOOR_EUR = 500;
+export { ENTLASTUNGS_SAETZE, satzFuer, type EntlastungsSatz } from "./rates";
 
 export type CalcInput = {
+  /** Verbrauchsjahr (Entnahmejahr). Bestimmt Satz und Selbstbehalt. */
+  verbrauchsjahr: number;
   /** Brutto-kWh aus allen Lieferstellen (Summe Jahresverbrauch). */
   bruttoKwh: number;
   /** Geschaetzte Privatnutzung in kWh (vom Kunden angegeben). */
@@ -41,62 +35,55 @@ export type CalcInput = {
 };
 
 export type CalcResult = {
+  verbrauchsjahr: number;
   bruttoKwh: number;
   abzuegeKwh: number;
   nettoKwh: number;
+  /** nettoKwh in MWh, drei Dezimalstellen. */
+  nettoMwh: number;
+  satzEurProMwh: number;
   bruttoErstattung: number;
+  /** Selbstbehalt nach § 9b Abs. 2 StromStG. */
   sockel: number;
-  honorar: number;
-  /** Effektiver Honorarsatz in Prozent (Floor faengt kleine Antraege auf). */
-  honorarSatz: number;
-  nettoAuszahlung: number;
+  /** Erstattung nach Selbstbehalt — der Betrag, der beim Kunden ankommt. */
+  auszahlung: number;
 };
-
-/** Rundet auf 2 Nachkommastellen (kaufmaennisch, halb-aufwaerts). */
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 /**
  * Berechnet die Erstattung fuer einen Antrag.
  * Funktion ist rein und idempotent — kein Datenbankzugriff.
  */
 export function calculateErstattung(input: CalcInput): CalcResult {
+  const satz = satzFuer(input.verbrauchsjahr);
   const bruttoKwh = Math.max(0, Math.floor(input.bruttoKwh));
   const abzuegeKwh =
     Math.max(0, Math.floor(input.privatnutzungKwh ?? 0)) +
     Math.max(0, Math.floor(input.eAutoKwh ?? 0));
   const nettoKwh = Math.max(0, bruttoKwh - abzuegeKwh);
 
-  const bruttoErstattung = round2(nettoKwh * ENTLASTUNGSSATZ_EUR_PRO_KWH);
-  const afterSockel = Math.max(0, round2(bruttoErstattung - SOCKEL_EUR));
-
-  const prozentHonorar = round2(afterSockel * HONORAR_QUOTE);
-  const honorar = Math.max(HONORAR_FLOOR_EUR, prozentHonorar);
-  const honorarSatz =
-    afterSockel > 0 ? round2((honorar / afterSockel) * 100) : 0;
-
-  const nettoAuszahlung = Math.max(0, round2(afterSockel - honorar));
+  const satzCentProMwh = Math.round(satz.eurProMwh * 100);
+  const erstattungCent = Math.round((nettoKwh * satzCentProMwh) / 1000);
+  const selbstbehaltCent = Math.round(satz.selbstbehaltEur * 100);
 
   return {
+    verbrauchsjahr: input.verbrauchsjahr,
     bruttoKwh,
     abzuegeKwh,
     nettoKwh,
-    bruttoErstattung,
-    sockel: SOCKEL_EUR,
-    honorar,
-    honorarSatz,
-    nettoAuszahlung,
+    nettoMwh: nettoKwh / 1000,
+    satzEurProMwh: satz.eurProMwh,
+    bruttoErstattung: erstattungCent / 100,
+    sockel: satz.selbstbehaltEur,
+    auszahlung: Math.max(0, erstattungCent - selbstbehaltCent) / 100,
   };
 }
 
 /**
- * Schwelle, ab der ein Antrag wirtschaftlich Sinn macht:
- * Sockel (250 €) muss ueber dem Brutto-Anspruch liegen, sonst 0 € Erstattung.
- * 12.500 kWh × 0,02 € = 250 € -> erst darueber faengt es an.
- * Praktisch "spuerbar" ab ~40.000 kWh (EnergyIQ-Mindestschwelle).
+ * Untergrenze, ab der wir einen Festpreis anbieten. Darunter laege der Preis
+ * effektiv ueber 25 % der Erstattung (docs/10, kleinstes Preisband 150 MWh).
+ * Rechnerisch beginnt die Entlastung schon bei 12.500 kWh (= 250 €).
  */
-export const MINDEST_KWH_WIRTSCHAFTLICH = 40_000;
+export const MINDEST_KWH_WIRTSCHAFTLICH = 150_000;
 
 export function istWirtschaftlich(bruttoKwh: number): boolean {
   return bruttoKwh >= MINDEST_KWH_WIRTSCHAFTLICH;
