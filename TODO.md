@@ -64,24 +64,29 @@ aus Formularen übernehmen, immer aus `rates.ts`.
 Es liegen 9 modifizierte und 6 neue Dateien uncommitted im Repo, darunter die
 gesamte Signatur-Integritätsarbeit.
 
-- [ ] `git status` prüfen, in thematischen Commits sichern:
+- [x] `git status` prüfen, in thematischen Commits sichern:
       `crypto.ts` + Test, `forms/legalTexts.ts` + Test, `forms/verify.ts`,
       Migration `2_signature_integrity`, Schema-Änderung, `mandat.ts`.
-- [ ] Conventional Commits (`feat:`, `fix:`, `chore:`).
+- [x] Conventional Commits (`feat:`, `fix:`, `chore:`).
 
 Akzeptanz: `git status` ist leer, `git log` zeigt mehr als drei Commits.
 
 ### 0.2 Baseline verifizieren
 
-- [ ] `pnpm install`
-- [ ] `pnpm db:generate`
-- [ ] `pnpm typecheck` — alle 5 Pakete grün
-- [ ] `pnpm lint` — alle 5 Pakete grün
-- [ ] `pnpm --filter @stromsteuer/api test` — 24 Tests grün
+- [x] `pnpm install`
+- [x] `pnpm db:generate`
+- [x] `pnpm typecheck` — alle 5 Pakete grün
+- [x] `pnpm lint` — alle 5 Pakete grün
+- [x] `pnpm --filter @stromsteuer/api test` — 24 Tests grün
 
 Akzeptanz: alles grün. Wenn nicht, hier stoppen und melden, nichts weiterbauen.
 
 ### 0.3 Migrations anwenden
+
+> **Blockiert (08.10.2026):** Die Supabase-Datenbank ist nicht erreichbar
+> (`tenant/user postgres.qgjefuiradlfwhbtpnzg not found`, Projekt vermutlich
+> pausiert). Im Supabase-Dashboard fortsetzen, dann `0_init` bis
+> `3_mandant_bankverbindung_mengen` deployen.
 
 - [ ] `pnpm --filter @stromsteuer/db exec prisma migrate deploy`
 - [ ] Falls die Tabellen per `db push` schon existieren, schlägt das fehl. Dann:
@@ -95,14 +100,14 @@ Tabelle `AuditEvent` existiert mit dem UPDATE/DELETE-Trigger.
 
 ### 0.4 Überholte Vorgaben entfernen
 
-- [ ] `CLAUDE.md`: Abschnitt „Verbindliche Geschaeftsregeln" Punkt 2
+- [x] `CLAUDE.md`: Abschnitt „Verbindliche Geschaeftsregeln" Punkt 2
       (Erfolgshonorar 14,1 %) ersetzen durch die Festpreisregel. Im Abschnitt
       „Was wir bauen" die Kanzlei durch `[KANZLEI]` ersetzen. Den Satz „Das alte
       Self-Submit-/Festpreis-Modell ist ueberholt — nicht zurueckbauen"
       streichen, er sagt jetzt das Gegenteil des Richtigen.
-- [ ] `Code_Plan.md`: Honorarzeilen und Kanzleiname; außerdem die falsche
+- [x] `Code_Plan.md`: Honorarzeilen und Kanzleiname; außerdem die falsche
       Zuordnung „1454 = § 9a" korrigieren (1454 ist § 12a StromStV).
-- [ ] `apps/web/src/config/brand.ts`: Kanzleiname und Anwalt auf Platzhalter.
+- [x] `apps/web/src/config/brand.ts`: Kanzleiname und Anwalt auf Platzhalter.
 
 Akzeptanz: `grep -ri "windorfer\|14,1\|erfolgshonorar" CLAUDE.md Code_Plan.md
 apps/web/src/config/brand.ts` findet nichts.
@@ -111,12 +116,17 @@ apps/web/src/config/brand.ts` findet nichts.
 
 ### 1.1 Schema erweitern
 
+> Erledigt 08.10.2026. Migration `3_mandant_bankverbindung_mengen` ist von Hand
+> geschrieben (Umbenennen statt Drop, Audit-Trail bleibt) und noch nicht
+> angewendet, siehe 0.3. Die tRPC-Namen (`application`, `ctx.application`)
+> bleiben vorerst, nur das Prisma-Modell heisst `Antrag`.
+
 Datei: `packages/db/prisma/schema.prisma`
 
 Heute hängen alle Firmendaten direkt am `Application`-Record, es gibt kein
 Mandanten-Modell und damit keine Mehrjahres-Historie.
 
-- [ ] Neues Modell `Mandant`:
+- [x] Neues Modell `Mandant`:
 
 ```prisma
 model Mandant {
@@ -161,7 +171,7 @@ enum Unternehmensart {
 }
 ```
 
-- [ ] `Application` in `Antrag` umbenennen, `mandantId` als Relation ergänzen,
+- [x] `Application` in `Antrag` umbenennen, `mandantId` als Relation ergänzen,
       die oben nach `Mandant` gewanderten Felder entfernen. Neu am `Antrag`:
 
 ```prisma
@@ -182,9 +192,9 @@ enum Entlastungsabschnitt { KALENDERJAHR HALBJAHR QUARTAL MONAT }
 enum BeschreibungStatus { BEREITS_VORGELEGT LIEGT_BEI }
 ```
 
-- [ ] `honorar` und `nettoAuszahlung` aus dem Schema entfernen, `bruttoErstattung`
+- [x] `honorar` und `nettoAuszahlung` aus dem Schema entfernen, `bruttoErstattung`
       bleibt.
-- [ ] `Lieferstelle`: `jahresKwh` ersetzen durch die drei Spalten aus Formular
+- [x] `Lieferstelle`: `jahresKwh` ersetzen durch die drei Spalten aus Formular
       1453 Seite 2. Die Tabelle dort verlangt die Menge dreigeteilt, nicht als
       eine Zahl:
 
@@ -194,7 +204,7 @@ enum BeschreibungStatus { BEREITS_VORGELEGT LIEGT_BEI }
   kwhNutzenergieLuF    Int   @default(0)  // Spalte 5: dito Land-/Forstwirtschaft
 ```
 
-- [ ] Neues Modell `NutzenergieEmpfaenger` (Grundlage für Formular 1456 und die
+- [x] Neues Modell `NutzenergieEmpfaenger` (Grundlage für Formular 1456 und die
       Zuordnungsaufstellung):
 
 ```prisma
@@ -211,7 +221,7 @@ model NutzenergieEmpfaenger {
 }
 ```
 
-- [ ] Migration erzeugen:
+- [x] Migration erzeugen:
       `pnpm --filter @stromsteuer/db exec prisma migrate dev --name 3_mandant_bankverbindung_mengen`
 
 Akzeptanz: `prisma validate` grün, Migration angewandt, `pnpm db:generate` läuft,
@@ -229,7 +239,7 @@ Heute vermischt eine Funktion zwei Dinge: die gesetzliche Erstattung und das
 Honorar. Das wird getrennt. Die Erstattungsberechnung ist korrekt und getestet —
 ihre Logik bleibt inhaltlich unverändert.
 
-- [ ] Neue Datei `packages/api/src/calc/rates.ts`:
+- [x] Neue Datei `packages/api/src/calc/rates.ts`:
 
 ```ts
 export type EntlastungsSatz = {
@@ -263,22 +273,22 @@ export function satzFuer(verbrauchsjahr: number): EntlastungsSatz {
 }
 ```
 
-- [ ] `ENTLASTUNGSSATZ_EUR_PRO_KWH` und `SOCKEL_EUR` als Konstanten entfernen.
+- [x] `ENTLASTUNGSSATZ_EUR_PRO_KWH` und `SOCKEL_EUR` als Konstanten entfernen.
       `calculateErstattung` bekommt `verbrauchsjahr: number` in `CalcInput` und
       liest Satz und Selbstbehalt über `satzFuer()`.
-- [ ] Rundung: Der Antrag wird in MWh gestellt, die Daten liegen in kWh.
+- [x] Rundung: Der Antrag wird in MWh gestellt, die Daten liegen in kWh.
       Festlegen und dokumentieren: kWh-Summe → MWh mit **drei Dezimalstellen**
       (1 kWh = 0,001 MWh, verlustfrei), Euro-Betrag danach auf 2 Stellen
       kaufmännisch. Nicht auf ganze MWh runden — das verschiebt bei 500 MWh
       bis zu 10 €.
-- [ ] `HONORAR_QUOTE`, `HONORAR_FLOOR_EUR`, `honorar`, `honorarSatz`,
+- [x] `HONORAR_QUOTE`, `HONORAR_FLOOR_EUR`, `honorar`, `honorarSatz`,
       `nettoAuszahlung` aus `stromsteuer.ts` und `CalcResult` entfernen.
-- [ ] `MINDEST_KWH_WIRTSCHAFTLICH` von `40_000` auf `150_000` anheben. Der
+- [x] `MINDEST_KWH_WIRTSCHAFTLICH` von `40_000` auf `150_000` anheben. Der
       Kommentar nennt eine EnergyIQ-Schwelle — die ist irrelevant, neu begründen
       mit dem Preismodell: unter 150 MWh liegt der Preis effektiv über 25 % der
       Erstattung.
 
-- [ ] Neue Datei `packages/api/src/calc/preise.ts`:
+- [x] Neue Datei `packages/api/src/calc/preise.ts`:
 
 ```ts
 export type PreisBand = {
@@ -321,12 +331,12 @@ Bandgrenzen sind unten einschließend, oben ausschließend: 250 MWh fällt in
 `250–400`. `preisEur: null` bedeutet, dass die App keinen Preis anzeigt, sondern
 auf ein individuelles Angebot verweist.
 
-- [ ] `preisFuer(mwh, opts?: { istFolgejahr?: boolean; tabelleVersion?: string })`
+- [x] `preisFuer(mwh, opts?: { istFolgejahr?: boolean; tabelleVersion?: string })`
       liefert `{ preisEur: number | null, version: string, band: PreisBand }`.
       Ohne `tabelleVersion` die neueste Tabelle; mit Version die historische,
       damit ein Altvertrag zu seinem Preis abgerechnet wird.
 
-- [ ] Tests in `packages/api/src/calc/stromsteuer.test.ts` anpassen. Die
+- [x] Tests in `packages/api/src/calc/stromsteuer.test.ts` anpassen. Die
       Erstattungs-Assertions bleiben inhaltlich, die Honorar-Assertions werden
       ersetzt:
       - Zeile 19–21: `honorar` / `honorarSatz` / `nettoAuszahlung` entfernen,
@@ -335,7 +345,7 @@ auf ein individuelles Angebot verweist.
         ersetzen.
       - Zeile 78–85 (Floor-Schwelle): löschen, es gibt keinen Floor mehr.
       - Zeile 96: `MINDEST_KWH_WIRTSCHAFTLICH` auf `150_000` anpassen.
-- [ ] Neue Tests: Satzwechsel 2023 → 2024 (5,13 vs. 20,00), Bandgrenzen
+- [x] Neue Tests: Satzwechsel 2023 → 2024 (5,13 vs. 20,00), Bandgrenzen
       exakt bei 250 und 400 MWh, Folgejahresfaktor, `preisEur: null` über
       3.000 MWh, historische Tabellenversion.
 
@@ -352,51 +362,51 @@ Erstattung — genau das, was rechtlich vermieden werden soll. Nur Bänder.
 `honorar` und `nettoAuszahlung` stecken in 26 Dateien. Reihenfolge von unten
 nach oben, damit `typecheck` als Wegweiser dient.
 
-- [ ] `packages/api/src/index.ts` Zeile 10–16: Exporte anpassen, `rates` und
+- [x] `packages/api/src/index.ts` Zeile 10–16: Exporte anpassen, `rates` und
       `preise` mit aufnehmen.
-- [ ] `packages/api/src/routers/application.ts` Zeilen 110–121, 152, 195–216,
+- [x] `packages/api/src/routers/application.ts` Zeilen 110–121, 152, 195–216,
       381–382, 523–524, 535–536: `honorar`/`nettoAuszahlung` durch `preisEur`
       und `preisTabelleVersion` ersetzen. `calculateErstattung` braucht jetzt
       `verbrauchsjahr`.
-- [ ] `packages/api/src/routers/admin.ts` Zeile 53–54 (select) und 186
+- [x] `packages/api/src/routers/admin.ts` Zeile 53–54 (select) und 186
       (Statusmeldung „kein Honorar faellig").
-- [ ] `packages/api/src/email/templates.ts` Zeilen 20–21, 33–34, 41, 58–59, 72:
+- [x] `packages/api/src/email/templates.ts` Zeilen 20–21, 33–34, 41, 58–59, 72:
       Tabellenzeile „Erfolgshonorar (nur bei Erfolg)" wird
       „Aufbereitungspauschale", „Voraussichtliche Auszahlung" wird „Erstattung".
-- [ ] `packages/api/src/email/status-templates.ts` Zeile 48 (Abzug des
+- [x] `packages/api/src/email/status-templates.ts` Zeile 48 (Abzug des
       Erfolgshonorars) und 79–84 (Ablehnung → „kein Honorar fällig"). Neuer
       Text: Der Preis ist unabhängig vom Bescheid fällig; bei Ablehnung prüft
       die Kanzlei einen Einspruch.
-- [ ] `packages/api/src/forms/kanzleiPaket.ts` Zeile 87–88: Zeilen
+- [x] `packages/api/src/forms/kanzleiPaket.ts` Zeile 87–88: Zeilen
       „Erfolgshonorar" und „Voraussichtliche Auszahlung" ersetzen.
-- [ ] `packages/api/src/forms/legalTexts.ts` Zeile 52–53 und 81: Klausel
+- [x] `packages/api/src/forms/legalTexts.ts` Zeile 52–53 und 81: Klausel
       `erfolgshonorar` entfernen, zwei neue Klauseln (siehe 1.4).
-- [ ] `packages/api/src/forms/mandat.ts` Zeilen 37–38, 302–316, 355: Seite 3
+- [x] `packages/api/src/forms/mandat.ts` Zeilen 37–38, 302–316, 355: Seite 3
       wird neu aufgebaut, siehe 1.4.
-- [ ] `apps/web/src/components/landing/Calculator.tsx` Zeilen 31–37, 119–139:
+- [x] `apps/web/src/components/landing/Calculator.tsx` Zeilen 31–37, 119–139:
       zeigt künftig Erstattung **und** Festpreis getrennt, nicht mehr
       `nettoAuszahlung`. Slider-Minimum folgt der neuen Schwelle 150.000 kWh.
-- [ ] `apps/web/src/components/wizard/AnspruchKarte.tsx` Zeilen 2–3, 16, 29,
+- [x] `apps/web/src/components/wizard/AnspruchKarte.tsx` Zeilen 2–3, 16, 29,
       48–72: Zeile „Erfolgshonorar (x %)" wird „Aufbereitungspauschale
       (Festpreis)". Import von `ENTLASTUNGSSATZ_EUR_PRO_KWH` und `SOCKEL_EUR`
       auf `satzFuer(antragsjahr)` umstellen.
-- [ ] `apps/web/src/components/wizard/MandatForm.tsx` Zeilen 24–26, 110,
+- [x] `apps/web/src/components/wizard/MandatForm.tsx` Zeilen 24–26, 110,
       355–359: Props `honorar`/`honorarSatz`/`nettoAuszahlung` → `preisEur`.
-- [ ] `apps/web/src/app/(wizard)/antrag/schritt-3/vollmacht/page.tsx` Zeilen
+- [x] `apps/web/src/app/(wizard)/antrag/schritt-3/vollmacht/page.tsx` Zeilen
       66–68.
-- [ ] `apps/web/src/app/(wizard)/antrag/schritt-1/page.tsx` Zeile 53.
-- [ ] `apps/web/src/app/admin/[id]/page.tsx` Zeilen 133–140,
+- [x] `apps/web/src/app/(wizard)/antrag/schritt-1/page.tsx` Zeile 53.
+- [x] `apps/web/src/app/admin/[id]/page.tsx` Zeilen 133–140,
       `apps/web/src/app/admin/eingang/page.tsx` Zeile 132.
-- [ ] `apps/web/src/app/status/[token]/page.tsx` Zeilen 34–35 und 87
+- [x] `apps/web/src/app/status/[token]/page.tsx` Zeilen 34–35 und 87
       („Erfolgshonorar-Vereinbarung").
-- [ ] `apps/web/src/components/landing/WarumCards.tsx` Zeile 16 („Rein
+- [x] `apps/web/src/components/landing/WarumCards.tsx` Zeile 16 („Rein
       erfolgsbasiertes Honorar") — neuer Nutzen: Festpreis, vorab bekannt.
-- [ ] `apps/web/src/lib/format.ts` Zeilen 42–48: `wochenKostenloserStrom`
+- [x] `apps/web/src/lib/format.ts` Zeilen 42–48: `wochenKostenloserStrom`
       rechnet mit `nettoAuszahlung`; auf die Erstattung nach Selbstbehalt
       umstellen oder die Funktion entfernen, falls die Darstellung wegfällt.
-- [ ] `apps/web/src/app/(marketing)/agb/page.tsx` Zeile 35–36: Erfolgshonorar
+- [x] `apps/web/src/app/(marketing)/agb/page.tsx` Zeile 35–36: Erfolgshonorar
       nach § 4a RVG und Mindesthonorar streichen.
-- [ ] `apps/web/src/components/wizard/LieferstelleCard.tsx` Zeile 432–434:
+- [x] `apps/web/src/components/wizard/LieferstelleCard.tsx` Zeile 432–434:
       Kommentar erwähnt den Honorar-Floor, anpassen.
 
 `apps/web/src/config/antrag.ts` bleibt inhaltlich richtig und wird **nicht**
@@ -411,25 +421,28 @@ grün. `grep -ri "erfolgshonorar\|nettoAuszahlung\|honorarSatz" apps packages`
 
 ### 1.4 Zwei getrennte Verträge
 
+> Erledigt 08.10.2026, beide Generatoren liegen gemeinsam in
+> `packages/api/src/forms/vertraege.ts` (Layout in `pdfLayout.ts`).
+
 Heute erzeugt `forms/mandat.ts` ein Dokument, das Mandat und Honorar vermischt.
 Rechtlich müssen es zwei Willenserklärungen sein.
 
-- [ ] `packages/api/src/forms/aufbereitungsvertrag.ts` — unser Vertrag:
+- [x] `packages/api/src/forms/aufbereitungsvertrag.ts` — unser Vertrag:
       Leistung ist Datenaufbereitung und Antragsvorbereitung, Festpreis nach
       Band, Preis vorab bekannt und unabhängig vom Bescheid fällig, kostenlose
       Vorprüfung vorab. **Keine Zusage eines Erstattungserfolgs.**
-- [ ] `packages/api/src/forms/kanzleimandat.ts` — Mandat und Vollmacht für die
+- [x] `packages/api/src/forms/kanzleimandat.ts` — Mandat und Vollmacht für die
       Kanzlei. Enthält den Hinweis, dass nach Vollmachtserteilung im Zoll-Portal
       alle Bescheide ausschließlich in das Portal-Profil der Kanzlei gehen und
       nicht mehr beim Mandanten eingehen.
-- [ ] `forms/legalTexts.ts`: Klausel `erfolgshonorar` entfernen, `festpreis` und
+- [x] `forms/legalTexts.ts`: Klausel `erfolgshonorar` entfernen, `festpreis` und
       `bescheidzustellung` ergänzen. `CONSENT_VERSION` hochziehen, weil sich der
       zugestimmte Wortlaut ändert — die bestehende Hash-Prüfung in
       `forms/verify.ts` und die Felder `consentVersion` / `consentTextSha256`
       bleiben unverändert in Gebrauch.
-- [ ] Wizard Schritt 3: zwei getrennte Zustimmungen mit je eigener Checkbox und
+- [x] Wizard Schritt 3: zwei getrennte Zustimmungen mit je eigener Checkbox und
       eigenem Signaturvorgang. Nicht ein Häkchen für beides.
-- [ ] Schema: `mandatPdfKey` / `mandatPdfSha256` aufteilen in
+- [x] Schema: `mandatPdfKey` / `mandatPdfSha256` aufteilen in
       `aufbereitungPdfKey`/`-Sha256` und `kanzleimandatPdfKey`/`-Sha256`.
 
 Akzeptanz: Nach Abschluss des Wizards liegen zwei PDFs im `generated`-Bucket,
@@ -441,11 +454,15 @@ ausgewählten Kanzlei und sind Live-Blocker.
 
 ### 1.5 Vollständigkeits-Gate
 
+> Erledigt 08.10.2026. Zwei Phasen: `uebergabe` (Wizard-`submit`, ohne
+> Portal-Vollmacht, die kommt erst nach dem Onboarding) und `einreichung`
+> (Backoffice-Status `SUBMITTED`, verlangt aktive Portal-Vollmacht).
+
 Neues Paket `packages/antrag`, Aufbau analog zu `packages/api`
 (`package.json`, `tsconfig.json` von `packages/config/tsconfig/library.json`,
 Vitest-Config).
 
-- [ ] `packages/antrag/src/complete.ts`:
+- [x] `packages/antrag/src/complete.ts`:
 
 ```ts
 export type FehlendesFeld = {
@@ -469,9 +486,9 @@ signiert, Portal-Vollmacht aktiv. Wenn `nutzenergieAnDritteWeitergegeben`, dann
 zusätzlich mindestens ein `NutzenergieEmpfaenger` je Kategorie mit Menge und
 vorliegender Selbsterklärung.
 
-- [ ] Die Funktion wirft nicht, sondern gibt die Liste zurück. Der Aufrufer
+- [x] Die Funktion wirft nicht, sondern gibt die Liste zurück. Der Aufrufer
       entscheidet über die Darstellung.
-- [ ] `submit` in `routers/application.ts` ruft `istEinreichbar` und bricht mit
+- [x] `submit` in `routers/application.ts` ruft `istEinreichbar` und bricht mit
       der Liste ab, wenn sie nicht leer ist.
 
 Akzeptanz: Tests mit Fixtures für Standardfall vollständig, IBAN fehlt,
@@ -484,15 +501,18 @@ eigene Regeln zu führen.
 
 ### 1.6 Antragsdatensatz und Vorprüfung
 
-- [ ] `packages/antrag/src/datensatz.ts`: erzeugt aus einem `Antrag` eine flache
+> Erledigt 08.10.2026. Datenblatt als Excel unter `/admin/<id>/datenblatt`,
+> jederzeit frisch aus dem aktuellen Stand, auch im Kanzlei-Paket.
+
+- [x] `packages/antrag/src/datensatz.ts`: erzeugt aus einem `Antrag` eine flache
       Struktur in der Feldreihenfolge des Formulars 1453 (Abschnitt 1 bis 9,
       dann Tabelle Seite 2 mit Spalte 3/4/5, Gesamtsumme, Selbstbehalt, zu
       entlasten). Diese Reihenfolge ist später die Reihenfolge im
       Portal-Eingabeblatt.
-- [ ] `forms/kanzleiPaket.ts` erweitern: Excel bekommt ein Blatt
+- [x] `forms/kanzleiPaket.ts` erweitern: Excel bekommt ein Blatt
       „Antragsdatensatz" aus dieser Struktur, plus ein Blatt „Fehlend" aus
       `pruefeVollstaendigkeit`.
-- [ ] Vorprüfung mit Hardstop vor Vertragsschluss: keine der beiden
+- [x] Vorprüfung mit Hardstop vor Vertragsschluss: keine der beiden
       Unternehmensarten → Abbruch; Erstattung unter Selbstbehalt → Abbruch;
       offene EU-Rückforderung (`triageKeineEuRueckforderung === false`) →
       Abbruch. In allen drei Fällen ohne Rechnung, mit Begründung im Klartext.
