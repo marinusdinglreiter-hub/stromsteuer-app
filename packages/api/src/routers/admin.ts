@@ -1,7 +1,9 @@
+import { istEinreichbar, pruefeVollstaendigkeit } from "@stromsteuer/antrag";
 import { prisma } from "@stromsteuer/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { berechneAntrag, ladeAntrag } from "../antrag-service";
 import { logAudit, tryLogAudit } from "../audit";
 import { sendMail } from "../email/client";
 import {
@@ -40,31 +42,29 @@ export const adminRouter = router({
         .optional(),
     )
     .query(({ input }) => {
-      return prisma.application.findMany({
+      return prisma.antrag.findMany({
         where: input?.status ? { status: input.status } : undefined,
         orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
         select: {
           id: true,
           status: true,
-          firmenname: true,
           antragsjahr: true,
-          email: true,
           bruttoErstattung: true,
-          honorar: true,
-          nettoAuszahlung: true,
+          preisEur: true,
           hzaAmount: true,
           submittedAt: true,
-          mandatSignedAt: true,
+          kanzleimandatSignedAt: true,
           hzaDecisionAt: true,
           payoutAt: true,
-          triageEnergieAnDritte: true,
+          nutzenergieAnDritteWeitergegeben: true,
+          mandant: { select: { firmenname: true, email: true } },
         },
       });
     }),
 
   /** Anzahl der Antraege je Status, fuer die Filterleiste im Eingang. */
   counts: adminProcedure.query(async () => {
-    const rows = await prisma.application.groupBy({
+    const rows = await prisma.antrag.groupBy({
       by: ["status"],
       _count: { _all: true },
     });
@@ -76,36 +76,85 @@ export const adminRouter = router({
     return counts;
   }),
 
-  /** Voller Datensatz inkl. Lieferstellen + Signed-URL aufs Kanzlei-Paket. */
+  /**
+   * Voller Datensatz inkl. Mandant, Lieferstellen, Vollstaendigkeit und
+   * Signed-URLs auf Kanzlei-Paket und beide Vertraege.
+   */
   get: adminProcedure
     .input(z.object({ id: z.string().min(1) }))
     .query(async ({ input }) => {
-      const app = await prisma.application.findUnique({
-        where: { id: input.id },
-        include: { lieferstellen: true },
-      });
-      if (!app) throw new TRPCError({ code: "NOT_FOUND" });
+      const antrag = await ladeAntrag(input.id);
 
-      let kanzleiPaketUrl: string | null = null;
-      if (app.kanzleiPaketKey) {
+      const signedUrl = async (key: string | null, label: string) => {
+        if (!key) return null;
         try {
-          kanzleiPaketUrl = await getGeneratedDownloadUrl(
-            app.kanzleiPaketKey,
-            60 * 60, // 1 Stunde
-          );
+          return await getGeneratedDownloadUrl(key, 60 * 60);
         } catch (err) {
-          console.warn("[admin.get] paket signed-url fehlgeschlagen:", err);
+          console.warn(`[admin.get] ${label} signed-url fehlgeschlagen:`, err);
+          return null;
         }
+      };
+      const [kanzleiPaketUrl, aufbereitungPdfUrl, kanzleimandatPdfUrl] = await Promise.all([
+        signedUrl(antrag.kanzleiPaketKey, "paket"),
+        signedUrl(antrag.aufbereitungPdfKey, "aufbereitung"),
+        signedUrl(antrag.kanzleimandatPdfKey, "kanzleimandat"),
+      ]);
+      return {
+        ...antrag,
+        berechnung: berechneAntrag(antrag),
+        fehlend: pruefeVollstaendigkeit(antrag, "einreichung"),
+        kanzleiPaketUrl,
+        aufbereitungPdfUrl,
+        kanzleimandatPdfUrl,
+      };
+    }),
+
+  /**
+   * Portal-Zugang des Mandanten pflegen (Vollmacht im Zoll-Portal). Ohne
+   * aktive Vollmacht kann die Kanzlei nicht einreichen.
+   */
+  setPortalVollmacht: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        vollmachtStatus: z.enum([
+          "OFFEN",
+          "ERTEILT",
+          "CODE_EINGELOEST",
+          "AKTIV",
+          "ABGELAUFEN",
+          "SCOPE_FALSCH",
+        ]),
+        beteiligtenNummer: z.string().max(40).optional(),
+        geprueftVon: z.string().max(120).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const antrag = await prisma.antrag.findUnique({
+        where: { id: input.id },
+        select: { mandantId: true },
+      });
+      if (!antrag?.mandantId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Antrag hat noch keinen Mandanten." });
       }
-      let mandatPdfUrl: string | null = null;
-      if (app.mandatPdfKey) {
-        try {
-          mandatPdfUrl = await getGeneratedDownloadUrl(app.mandatPdfKey, 60 * 60);
-        } catch (err) {
-          console.warn("[admin.get] mandat signed-url fehlgeschlagen:", err);
-        }
-      }
-      return { ...app, kanzleiPaketUrl, mandatPdfUrl };
+      const aktiv = input.vollmachtStatus === "AKTIV";
+      const data = {
+        vollmachtStatus: input.vollmachtStatus,
+        ...(input.beteiligtenNummer ? { beteiligtenNummer: input.beteiligtenNummer } : {}),
+        ...(aktiv ? { scopeGeprueftAt: new Date(), scopeGeprueftVon: input.geprueftVon ?? "Kanzlei" } : {}),
+      };
+      const zugang = await prisma.portalZugang.upsert({
+        where: { mandantId: antrag.mandantId },
+        create: { mandantId: antrag.mandantId, ...data },
+        update: data,
+      });
+      await tryLogAudit({
+        antragId: input.id,
+        type: "STATUS_CHANGED",
+        actor: "KANZLEI",
+        metadata: { portalVollmacht: input.vollmachtStatus },
+      });
+      return zugang;
     }),
 
   /**
@@ -124,10 +173,14 @@ export const adminRouter = router({
     )
     .mutation(async ({ input }) => {
       const e = env();
-      const app = await prisma.application.findUnique({
-        where: { id: input.id },
-      });
-      if (!app) throw new TRPCError({ code: "NOT_FOUND" });
+      const app = await ladeAntrag(input.id);
+      if (input.nextStatus === "SUBMITTED" && !istEinreichbar(app, "einreichung")) {
+        const fehlend = pruefeVollstaendigkeit(app, "einreichung");
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Nicht einreichbar: ${fehlend.map((f) => f.label).join(", ")}.`,
+        });
+      }
 
       const now = new Date();
       const data: Record<string, unknown> = {
@@ -150,13 +203,13 @@ export const adminRouter = router({
       }
 
       const updated = await prisma.$transaction(async (tx) => {
-        const u = await tx.application.update({
+        const u = await tx.antrag.update({
           where: { id: input.id },
           data,
         });
         await logAudit(
           {
-            applicationId: input.id,
+            antragId: input.id,
             type: "STATUS_CHANGED",
             actor: "KANZLEI",
             metadata: {
@@ -171,10 +224,11 @@ export const adminRouter = router({
       });
 
       // Kunden-Mail nach Status-Wechsel.
-      if (updated.email) {
+      const kundenEmail = app.mandant?.email;
+      if (kundenEmail) {
         const baseInput = {
           brand: { name: input.brandName, shortName: input.brandShortName },
-          firmenname: updated.firmenname ?? "Antragsteller",
+          firmenname: app.mandant?.firmenname ?? "Antragsteller",
           antragsjahr: updated.antragsjahr ?? new Date().getFullYear() - 1,
           statusUrl: `${e.APP_BASE_URL}/status/${updated.sessionToken}`,
           hzaAmount:
@@ -197,10 +251,10 @@ export const adminRouter = router({
               ? "Bescheid: Antrag bewilligt"
               : input.nextStatus === "PAID"
                 ? "Erstattung ausgezahlt"
-                : "Antrag abgelehnt — kein Honorar faellig";
+                : "Bescheid: Antrag abgelehnt";
         try {
           await sendMail({
-            to: updated.email,
+            to: kundenEmail,
             subject,
             html: tpl.html,
             text: tpl.text,
@@ -221,7 +275,7 @@ export const adminRouter = router({
   expireDrafts: adminProcedure.mutation(async () => {
     const e = env();
     const cutoff = new Date(Date.now() - e.DRAFT_TTL_DAYS * 24 * 60 * 60 * 1000);
-    const expired = await prisma.application.findMany({
+    const expired = await prisma.antrag.findMany({
       where: {
         status: { in: ["DRAFT", "SIGNED"] },
         createdAt: { lt: cutoff },
@@ -242,8 +296,10 @@ export const adminRouter = router({
         }
       }
       const generatedKeys = [
-        app.signaturePngKey,
-        app.mandatPdfKey,
+        app.aufbereitungSignaturePngKey,
+        app.aufbereitungPdfKey,
+        app.kanzleimandatSignaturePngKey,
+        app.kanzleimandatPdfKey,
         app.kanzleiPaketKey,
       ].filter((k): k is string => k !== null);
       if (generatedKeys.length > 0) {
@@ -254,12 +310,12 @@ export const adminRouter = router({
           console.warn(`[expireDrafts] Generated-Loeschung ${app.id}:`, err);
         }
       }
-      await prisma.application.update({
+      await prisma.antrag.update({
         where: { id: app.id },
         data: { status: "EXPIRED" },
       });
       await tryLogAudit({
-        applicationId: app.id,
+        antragId: app.id,
         type: "DRAFT_EXPIRED",
         actor: "SYSTEM",
         metadata: {

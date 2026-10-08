@@ -3,12 +3,14 @@ import { prisma } from "@stromsteuer/db";
 import { sha256Hex } from "../crypto";
 import { downloadGenerated } from "../storage/supabase";
 
+export type Vertrag = "aufbereitung" | "kanzleimandat";
+
 export type MandatIntegrity = {
   /** true, wenn der gespeicherte PDF-Hash zum aktuell abgelegten Dokument passt. */
   ok: boolean;
   /** Klartext-Grund, falls die Pruefung nicht erfolgreich war. */
   reason?: string;
-  /** Bei der Signatur gespeicherter Soll-Hash (aus der Application). */
+  /** Bei der Signatur gespeicherter Soll-Hash. */
   expectedSha256: string | null;
   /** Neu berechneter Ist-Hash der gespeicherten Datei. */
   actualSha256: string | null;
@@ -17,25 +19,29 @@ export type MandatIntegrity = {
 };
 
 /**
- * Prueft die Integritaet einer signierten Mandat-PDF: laedt das gespeicherte
+ * Prueft die Integritaet eines signierten Vertrags-PDFs: laedt das gespeicherte
  * Dokument, rechnet den SHA-256 neu und vergleicht ihn mit dem bei der Signatur
  * verankerten Hash. Weicht der Hash ab, wurde die Datei nach der Unterschrift
  * veraendert. Gedacht fuer den Kanzlei-/Admin-Bereich und Beweiszwecke.
  */
 export async function verifyMandatIntegrity(
-  applicationId: string,
+  antragId: string,
+  vertrag: Vertrag = "kanzleimandat",
 ): Promise<MandatIntegrity> {
-  const app = await prisma.application.findUnique({
-    where: { id: applicationId },
+  const antrag = await prisma.antrag.findUnique({
+    where: { id: antragId },
     select: {
-      mandatPdfKey: true,
-      mandatPdfSha256: true,
+      aufbereitungPdfKey: true,
+      aufbereitungPdfSha256: true,
+      aufbereitungSignedAt: true,
+      kanzleimandatPdfKey: true,
+      kanzleimandatPdfSha256: true,
+      kanzleimandatSignedAt: true,
       consentVersion: true,
-      mandatSignedAt: true,
     },
   });
 
-  if (!app) {
+  if (!antrag) {
     return {
       ok: false,
       reason: "Antrag nicht gefunden.",
@@ -45,28 +51,35 @@ export async function verifyMandatIntegrity(
       signedAt: null,
     };
   }
-  if (!app.mandatPdfKey || !app.mandatPdfSha256) {
+
+  const key = vertrag === "aufbereitung" ? antrag.aufbereitungPdfKey : antrag.kanzleimandatPdfKey;
+  const expected =
+    vertrag === "aufbereitung" ? antrag.aufbereitungPdfSha256 : antrag.kanzleimandatPdfSha256;
+  const signedAt =
+    vertrag === "aufbereitung" ? antrag.aufbereitungSignedAt : antrag.kanzleimandatSignedAt;
+
+  if (!key || !expected) {
     return {
       ok: false,
-      reason: "Kein signiertes Mandat vorhanden.",
-      expectedSha256: app.mandatPdfSha256 ?? null,
+      reason: "Kein signierter Vertrag vorhanden.",
+      expectedSha256: expected ?? null,
       actualSha256: null,
-      consentVersion: app.consentVersion ?? null,
-      signedAt: app.mandatSignedAt ?? null,
+      consentVersion: antrag.consentVersion ?? null,
+      signedAt: signedAt ?? null,
     };
   }
 
-  const bytes = await downloadGenerated(app.mandatPdfKey);
+  const bytes = await downloadGenerated(key);
   const actualSha256 = sha256Hex(bytes);
-  const ok = actualSha256 === app.mandatPdfSha256;
+  const ok = actualSha256 === expected;
   return {
     ok,
     reason: ok
       ? undefined
       : "Integritaets-Hash weicht ab — die gespeicherte PDF wurde veraendert.",
-    expectedSha256: app.mandatPdfSha256,
+    expectedSha256: expected,
     actualSha256,
-    consentVersion: app.consentVersion ?? null,
-    signedAt: app.mandatSignedAt ?? null,
+    consentVersion: antrag.consentVersion ?? null,
+    signedAt: signedAt ?? null,
   };
 }

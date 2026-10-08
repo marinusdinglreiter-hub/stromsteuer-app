@@ -16,7 +16,7 @@
  * Version des zustimmungspflichtigen Wortlauts. Bei jeder Textaenderung erhoehen
  * (Datum im ISO-Format). Wird pro Signatur auf der Application gespeichert.
  */
-export const CONSENT_VERSION = "2026-07-14";
+export const CONSENT_VERSION = "2026-10-08";
 
 /**
  * Kanonische Klauseln. Platzhalter im `{{token}}`-Format werden erst zur
@@ -49,10 +49,26 @@ export const CLAUSES = {
     "Die Vollmacht umfasst Empfangsbevollmaechtigung fuer Bescheide und Schriftverkehr. " +
     "Sie erlischt mit Bekanntgabe des Bescheids bzw. Abschluss eines etwaigen " +
     "Rechtsbehelfsverfahrens.",
-  erfolgshonorar:
-    "Die Parteien vereinbaren ein Erfolgshonorar gemaess § 4a Abs. 1 RVG. Das Honorar " +
-    "ist ausschliesslich im Erfolgsfall — also bei Auszahlung der Stromsteuer-Entlastung " +
-    "durch das Hauptzollamt — geschuldet.",
+  bescheidzustellung:
+    "[JURISTISCH ZU PRUEFEN] Der Mandant nimmt zur Kenntnis, dass nach Erteilung der " +
+    "Vollmacht im Zoll-Portal alle Bescheide und Schreiben des Hauptzollamts zu diesem " +
+    "Verfahren ausschliesslich in das Portal-Profil der Mandatsnehmerin zugestellt werden " +
+    "und nicht mehr beim Mandanten eingehen. Die Mandatsnehmerin informiert den Mandanten " +
+    "ueber jeden Bescheid.",
+  aufbereitungLeistung:
+    "[JURISTISCH ZU PRUEFEN] Der Auftragnehmer bereitet die vom Auftraggeber " +
+    "uebermittelten Stromrechnungen und Angaben fuer den Antrag auf Stromsteuer-Entlastung " +
+    "nach § 9b StromStG fuer das Verbrauchsjahr {{antragsjahr}} auf: Erfassung und " +
+    "Pruefung der Verbrauchsmengen je Lieferstelle, Zusammenstellung der Unternehmens- und " +
+    "Bankdaten sowie Uebergabe eines vollstaendigen Antragsdatensatzes an die vom " +
+    "Auftraggeber gesondert beauftragte Kanzlei. Der Auftragnehmer erbringt keine Rechts- " +
+    "oder Steuerberatung und stellt keinen Antrag beim Hauptzollamt.",
+  festpreis:
+    "[JURISTISCH ZU PRUEFEN] Fuer die Aufbereitung zahlt der Auftraggeber einen Festpreis " +
+    "nach der bei Vertragsschluss gueltigen Preistabelle (Verbrauchsband). Der Preis ist " +
+    "vorab bekannt und unabhaengig vom Inhalt des Bescheids faellig. Eine Erstattung in " +
+    "bestimmter Hoehe wird nicht zugesagt. Die Vorpruefung vor Vertragsschluss ist " +
+    "kostenlos. Die Vertretung durch die Kanzlei wird von dieser gesondert berechnet.",
 } as const;
 
 export type ClauseKey = keyof typeof CLAUSES;
@@ -73,11 +89,13 @@ export function renderClause(
 export function canonicalConsentText(): string {
   return [
     `CONSENT_VERSION: ${CONSENT_VERSION}`,
+    CLAUSES.aufbereitungLeistung,
+    CLAUSES.festpreis,
     CLAUSES.mandatsgegenstand,
     CLAUSES.pflichtenDesMandanten,
     CLAUSES.verschwiegenheit,
     CLAUSES.vollmachtGegenstand,
     CLAUSES.vollmachtUmfang,
-    CLAUSES.erfolgshonorar,
+    CLAUSES.bescheidzustellung,
   ].join("\n\n");
 }

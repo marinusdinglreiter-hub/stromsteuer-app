@@ -1,4 +1,4 @@
-import { prisma, type Application } from "@stromsteuer/db";
+import { prisma, type Antrag } from "@stromsteuer/db";
 
 /**
  * Name des HTTP-Cookies, ueber den die Antrags-Session identifiziert wird.
@@ -12,8 +12,8 @@ export const SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 export type Context = {
   /** Token aus dem Cookie, falls vorhanden. */
   sessionToken: string | null;
-  /** Bereits geladene Application, falls Cookie zu einem DB-Row passt. */
-  application: Application | null;
+  /** Bereits geladener Antrag, falls Cookie zu einem DB-Row passt. */
+  application: Antrag | null;
   /** Request-IP fuer Audit (Signatur-Pfad). */
   ip: string | null;
   /** User-Agent fuer Audit. */
@@ -38,9 +38,9 @@ export async function createContext(
 ): Promise<Context> {
   const { sessionToken, ip, userAgent } = options;
 
-  let application: Application | null = null;
+  let application: Antrag | null = null;
   if (sessionToken) {
-    application = await prisma.application.findUnique({
+    application = await prisma.antrag.findUnique({
       where: { sessionToken },
     });
   }

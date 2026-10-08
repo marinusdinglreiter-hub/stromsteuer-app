@@ -19,7 +19,7 @@ import {
 type Db = typeof prisma | Prisma.TransactionClient;
 
 export type AuditInput = {
-  applicationId?: string | null;
+  antragId?: string | null;
   type: AuditEventType;
   actor?: AuditActor;
   ip?: string | null;
@@ -31,7 +31,7 @@ export type AuditInput = {
 export async function logAudit(input: AuditInput, db: Db = prisma): Promise<void> {
   await db.auditEvent.create({
     data: {
-      applicationId: input.applicationId ?? null,
+      antragId: input.antragId ?? null,
       type: input.type,
       actor: input.actor ?? "CUSTOMER",
       ip: input.ip ?? null,

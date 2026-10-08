@@ -45,7 +45,7 @@ export function renderStatusApproved(input: StatusUpdateInput) {
       <p>das Hauptzollamt hat Ihren Antrag auf Stromsteuer-Entlastung nach § 9b StromStG <strong>positiv beschieden</strong>.</p>
       ${
         input.hzaAmount
-          ? `<p>Bewilligter Brutto-Betrag: <strong>${eur(input.hzaAmount)}</strong>. Nach Abzug des Erfolgshonorars (gemäß Vereinbarung) erfolgt die Auszahlung auf Ihr Firmenkonto.</p>`
+          ? `<p>Bewilligter Betrag: <strong>${eur(input.hzaAmount)}</strong>. Das Hauptzollamt zahlt ihn direkt auf Ihr Firmenkonto aus.</p>`
           : "<p>Die Auszahlung wird zeitnah veranlasst.</p>"
       }
       <p>Antragsteller: <strong>${input.firmenname}</strong> · Verbrauchsjahr ${input.antragsjahr}</p>
@@ -76,12 +76,12 @@ export function renderStatusPaid(input: StatusUpdateInput) {
 
 export function renderStatusRejected(input: StatusUpdateInput) {
   return renderEmail({
-    title: "Antrag abgelehnt — kein Honorar fällig",
-    preheader: "Bescheid erhalten — keine Kosten fuer Sie.",
+    title: "Bescheid: Antrag abgelehnt",
+    preheader: "Bescheid erhalten — die Kanzlei prueft einen Einspruch.",
     bodyHtml: `
       <p>guten Tag,</p>
       <p>leider hat das Hauptzollamt Ihren Antrag auf Stromsteuer-Entlastung nach § 9b StromStG <strong>abgelehnt</strong>.</p>
-      <p>Gemäß unserer Erfolgshonorar-Vereinbarung entstehen Ihnen <strong>keinerlei Kosten</strong> — Sie zahlen 0 €. Die Partnerkanzlei meldet sich kurzfristig mit den Bescheid-Details und prüft, ob ein Einspruch sinnvoll ist.</p>
+      <p>Die Partnerkanzlei meldet sich kurzfristig mit den Bescheid-Details und prüft, ob ein Einspruch sinnvoll ist. Unsere Aufbereitungspauschale ist als Festpreis unabhängig vom Bescheid vereinbart.</p>
       <p>Antragsteller: <strong>${input.firmenname}</strong> · Verbrauchsjahr ${input.antragsjahr}</p>
     `,
     cta: { href: input.statusUrl, label: "Status ansehen" },

@@ -17,8 +17,10 @@ export type AntragBestaetigtInput = {
   firmenname: string;
   antragsjahr: number;
   bruttoErstattung: number;
-  honorar: number;
-  nettoAuszahlung: number;
+  /** Erstattung nach Selbstbehalt */
+  erstattung: number;
+  /** Aufbereitungspauschale (Festpreis); null = individuelles Angebot */
+  preisEur: number | null;
   statusUrl: string;
   kanzleiName: string;
 };
@@ -30,19 +32,19 @@ export function renderAntragBestaetigt(input: AntragBestaetigtInput) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;border:1px solid #e2e8f0;border-radius:8px;">
       <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;">Antragsteller</td><td style="padding:10px 14px;font-size:13px;text-align:right;">${input.firmenname}</td></tr>
       <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Brutto-Erstattungsanspruch</td><td style="padding:10px 14px;font-size:13px;text-align:right;border-top:1px solid #f1f5f9;">${eur(input.bruttoErstattung)}</td></tr>
-      <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Erfolgshonorar (nur bei Erfolg)</td><td style="padding:10px 14px;font-size:13px;text-align:right;border-top:1px solid #f1f5f9;">-${eur(input.honorar)}</td></tr>
-      <tr><td style="padding:10px 14px;color:#0f172a;font-size:13px;font-weight:600;border-top:1px solid #e2e8f0;">Voraussichtliche Auszahlung</td><td style="padding:10px 14px;font-size:15px;font-weight:700;text-align:right;color:#1d4ed8;border-top:1px solid #e2e8f0;">${eur(input.nettoAuszahlung)}</td></tr>
+      <tr><td style="padding:10px 14px;color:#0f172a;font-size:13px;font-weight:600;border-top:1px solid #e2e8f0;">Erstattung (nach Selbstbehalt)</td><td style="padding:10px 14px;font-size:15px;font-weight:700;text-align:right;color:#1d4ed8;border-top:1px solid #e2e8f0;">${eur(input.erstattung)}</td></tr>
+      <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Aufbereitungspauschale (Festpreis, unsere Rechnung)</td><td style="padding:10px 14px;font-size:13px;text-align:right;border-top:1px solid #f1f5f9;">${input.preisEur !== null ? eur(input.preisEur) : "nach Angebot"}</td></tr>
     </table>
     <p>Im Status-Portal können Sie jederzeit nachschauen, wie weit Ihr Antrag fortgeschritten ist:</p>
   `;
 
   return renderEmail({
     title: "Ihr Antrag ist eingegangen",
-    preheader: `Antragsnummer eingetragen — Auszahlung ${eur(input.nettoAuszahlung)} voraussichtlich.`,
+    preheader: `Antrag eingegangen — voraussichtliche Erstattung ${eur(input.erstattung)}.`,
     bodyHtml: body,
     cta: { href: input.statusUrl, label: "Status meines Antrags ansehen" },
     footerNote:
-      "Sie haben den Antrag bei uns erfolgsbasiert beauftragt — bei Ablehnung fallen keine Kosten an. Bei Rueckfragen einfach auf diese Mail antworten.",
+      "Sie erhalten zwei Rechnungen: unsere Aufbereitungspauschale (Festpreis, unabhaengig vom Bescheid) und die Rechnung der Kanzlei fuer die Vertretung. Bei Rueckfragen einfach auf diese Mail antworten.",
     brandName: input.brand.name,
     brandShortName: input.brand.shortName,
   });
@@ -55,8 +57,8 @@ export type NeuerAntragKanzleiInput = {
   geschaeftsfuehrer: string;
   antragsjahr: number;
   bruttoErstattung: number;
-  honorar: number;
-  nettoAuszahlung: number;
+  erstattung: number;
+  preisEur: number | null;
   needs1456: boolean;
   paketDownloadUrl: string;
   kundenEmail: string;
@@ -69,12 +71,12 @@ export function renderNeuerAntragKanzlei(input: NeuerAntragKanzleiInput) {
       <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;">Mandant</td><td style="padding:10px 14px;font-size:13px;text-align:right;">${input.firmenname}</td></tr>
       <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Vertreten durch</td><td style="padding:10px 14px;font-size:13px;text-align:right;border-top:1px solid #f1f5f9;">${input.geschaeftsfuehrer}</td></tr>
       <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Verbrauchsjahr</td><td style="padding:10px 14px;font-size:13px;text-align:right;border-top:1px solid #f1f5f9;">${input.antragsjahr}</td></tr>
-      <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Brutto / Honorar / Auszahlung</td><td style="padding:10px 14px;font-size:13px;text-align:right;border-top:1px solid #f1f5f9;">${eur(input.bruttoErstattung)} / ${eur(input.honorar)} / ${eur(input.nettoAuszahlung)}</td></tr>
+      <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Gesamtsumme / zu entlasten</td><td style="padding:10px 14px;font-size:13px;text-align:right;border-top:1px solid #f1f5f9;">${eur(input.bruttoErstattung)} / ${eur(input.erstattung)}</td></tr>
       <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Formular 1456 erforderlich</td><td style="padding:10px 14px;font-size:13px;text-align:right;border-top:1px solid #f1f5f9;">${input.needs1456 ? "Ja" : "Nein"}</td></tr>
       <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Mandanten-Mail</td><td style="padding:10px 14px;font-size:13px;text-align:right;border-top:1px solid #f1f5f9;">${input.kundenEmail}</td></tr>
       <tr><td style="padding:10px 14px;color:#64748b;font-size:12px;border-top:1px solid #f1f5f9;">Vorgang</td><td style="padding:10px 14px;font-family:monospace;font-size:12px;text-align:right;border-top:1px solid #f1f5f9;">${input.applicationId}</td></tr>
     </table>
-    <p>Das vollständige Antrags-Paket (Belege, Excel-Übersicht, signiertes Mandat-PDF, Triage-Antworten) liegt zum Download bereit — der Link ist 15 Minuten gültig, der Inhalt bleibt im Storage:</p>
+    <p>Das vollständige Antrags-Paket (Datenblatt mit Antragsdatensatz in Formular-Reihenfolge, Belege, beide signierten Verträge) liegt zum Download bereit — der Link ist 15 Minuten gültig, der Inhalt bleibt im Storage:</p>
   `;
 
   return renderEmail({

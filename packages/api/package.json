@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-textract": "^3.717.0",
+    "@stromsteuer/antrag": "workspace:*",
     "@stromsteuer/db": "workspace:*",
     "@supabase/supabase-js": "^2.47.10",
     "@trpc/server": "^11.0.0",

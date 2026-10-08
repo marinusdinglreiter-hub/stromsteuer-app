@@ -8,51 +8,50 @@ import {
 } from "../storage/supabase";
 import { applicationProcedure, router } from "../trpc";
 
-const updateSchema = z.object({
-  id: z.string().min(1),
+const kwh = z.number().int().min(0).max(50_000_000);
+
+/** Felder, die Kunde oder OCR an einer Lieferstelle setzen duerfen. */
+const felder = {
   firmenname: z.string().min(1).max(200).optional(),
   adresse: z.string().min(1).max(300).optional(),
   plz: z
     .string()
     .regex(/^\d{5}$/)
     .optional(),
-  jahresKwh: z.number().int().min(0).max(50_000_000).optional(),
+  /** Formular 1453 Spalte 3 */
+  kwhEigenbetrieblich: kwh.optional(),
+  /** Spalte 4 */
+  kwhNutzenergiePG: kwh.optional(),
+  /** Spalte 5 */
+  kwhNutzenergieLuF: kwh.optional(),
+  versorger: z.string().max(200).optional(),
+  zeitraumVon: z.date().optional(),
+  zeitraumBis: z.date().optional(),
+  stromsteuerGezahltEur: z.number().min(0).max(100_000_000).optional(),
   belegFileKeys: z.array(z.string()).optional(),
   ocrConfidence: z.number().min(0).max(1).optional(),
-});
+};
+
+const updateSchema = z.object({ id: z.string().min(1), ...felder });
 
 export const lieferstelleRouter = router({
   list: applicationProcedure.query(({ ctx }) => {
     return prisma.lieferstelle.findMany({
-      where: { applicationId: ctx.application.id },
+      where: { antragId: ctx.application.id },
       orderBy: { createdAt: "asc" },
     });
   }),
 
   create: applicationProcedure
-    .input(
-      z
-        .object({
-          firmenname: z.string().min(1).max(200).optional(),
-          adresse: z.string().min(1).max(300).optional(),
-          plz: z
-            .string()
-            .regex(/^\d{5}$/)
-            .optional(),
-          jahresKwh: z.number().int().min(0).max(50_000_000).optional(),
-          belegFileKeys: z.array(z.string()).optional(),
-          ocrConfidence: z.number().min(0).max(1).optional(),
-        })
-        .optional(),
-    )
+    .input(z.object(felder).optional())
     .mutation(({ ctx, input }) => {
       return prisma.lieferstelle.create({
         data: {
-          applicationId: ctx.application.id,
+          ...input,
+          antragId: ctx.application.id,
           firmenname: input?.firmenname ?? "",
           adresse: input?.adresse ?? "",
-          plz: input?.plz,
-          jahresKwh: input?.jahresKwh ?? 0,
+          kwhEigenbetrieblich: input?.kwhEigenbetrieblich ?? 0,
           belegFileKeys: input?.belegFileKeys ?? [],
           ocrConfidence: input?.ocrConfidence ?? null,
         },
@@ -65,7 +64,7 @@ export const lieferstelleRouter = router({
       const existing = await prisma.lieferstelle.findUnique({
         where: { id: input.id },
       });
-      if (!existing || existing.applicationId !== ctx.application.id) {
+      if (!existing || existing.antragId !== ctx.application.id) {
         throw new TRPCError({ code: "NOT_FOUND" });
       }
       const { id, ...data } = input;
@@ -78,7 +77,7 @@ export const lieferstelleRouter = router({
       const existing = await prisma.lieferstelle.findUnique({
         where: { id: input.id },
       });
-      if (!existing || existing.applicationId !== ctx.application.id) {
+      if (!existing || existing.antragId !== ctx.application.id) {
         throw new TRPCError({ code: "NOT_FOUND" });
       }
       // Storage-Aufraeumen besteht best-effort: bei Fehler nicht die DB-Loeschung blocken.

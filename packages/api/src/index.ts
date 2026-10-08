@@ -8,13 +8,12 @@ export {
 } from "./context";
 export {
   calculateErstattung,
-  HONORAR_FLOOR_EUR,
-  HONORAR_QUOTE,
-  ENTLASTUNGSSATZ_EUR_PRO_KWH,
+  ENTLASTUNGS_SAETZE,
   istWirtschaftlich,
   MINDEST_KWH_WIRTSCHAFTLICH,
-  SOCKEL_EUR,
+  satzFuer,
   type CalcInput,
+  type EntlastungsSatz,
   type CalcResult,
 } from "./calc/stromsteuer";
 export {
@@ -42,9 +41,23 @@ export {
   uploadBeleg,
   uploadGenerated,
 } from "./storage/supabase";
-export { generateMandatPdf, type MandatInput } from "./forms/mandat";
+export {
+  generateAufbereitungsvertragPdf,
+  generateKanzleimandatPdf,
+  type AufbereitungsvertragInput,
+  type KanzleimandatInput,
+} from "./forms/vertraege";
+export {
+  generateDatenblatt,
+  type DatenblattErgebnis,
+} from "./forms/datenblatt";
+export { erzeugeDatenblattFuerAntrag, ladeAntrag } from "./antrag-service";
 export { CONSENT_VERSION } from "./forms/legalTexts";
-export { verifyMandatIntegrity, type MandatIntegrity } from "./forms/verify";
+export {
+  verifyMandatIntegrity,
+  type MandatIntegrity,
+  type Vertrag,
+} from "./forms/verify";
 export {
   generateKanzleiPaket,
   type KanzleiPaketInput,
