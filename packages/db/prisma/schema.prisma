@@ -1,8 +1,11 @@
-// Prisma schema — MVP Partnerkanzlei-Modell.
+// Prisma schema — Partnerkanzlei-Modell mit Festpreis (TODO.md, Stand 27.09.2026).
 //
-// Eine Application repraesentiert einen Antrag, der vom Kunden gestartet,
-// von der Partnerkanzlei bearbeitet und beim Hauptzollamt eingereicht wird.
-// Identifikation laeuft ueber sessionToken (Cookie + Magic-Link), kein Login.
+// Ein Mandant (Unternehmen) stellt je Verbrauchsjahr einen Antrag. Der Antrag
+// wird vom Kunden im Wizard gestartet, von uns aufbereitet und von der
+// Partnerkanzlei im Zoll-Portal gestellt. Identifikation des Antrags laeuft
+// ueber sessionToken (Cookie + Magic-Link), kein Login.
+//
+// Feldnamen fuer den Hauptantrag folgen docs/formulare/1453-feldspezifikation.md.
 
 generator client {
   provider = "prisma-client-js"
@@ -14,65 +17,117 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model Application {
-  id           String            @id @default(cuid())
-  sessionToken String            @unique
-  status       ApplicationStatus @default(DRAFT)
+model Mandant {
+  id                String  @id @default(cuid())
+  firmenname        String
+  rechtsform        String?
+  geschaeftsfuehrer String?
+  vorname           String?
+  nachname          String?
+  email             String?
+  telefon           String?
+  strasse           String?
+  plz               String?
+  ort               String?
+
+  // Formular 1453 Abschnitt 1
+  steuernummer       String?
+  ustIdNr            String?
+  handelsregister    String? // HRB
+  wzCode             String? // Klassifikation der Wirtschaftszweige
+  unternehmensnummer String? // Zoll-Unternehmensnummer
+  hauptzollamt       String? // nach Geschaeftssitz, NICHT nach Lieferstelle
+
+  // Formular 1453 Abschnitt 4, ohne IBAN kein Antrag
+  kontoinhaber String?
+  iban         String?
+  bic          String?
+
+  // § 2 Nr. 3 StromStG (Produzierendes Gewerbe) oder Nr. 5 (Land-/Forstwirtschaft)
+  unternehmensart Unternehmensart?
+
+  antraege     Antrag[]
+  portalZugang PortalZugang?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Unternehmensart {
+  PRODUZIERENDES_GEWERBE
+  LAND_FORSTWIRTSCHAFT
+}
+
+model Antrag {
+  id           String       @id @default(cuid())
+  sessionToken String       @unique
+  status       AntragStatus @default(DRAFT)
+
+  mandant   Mandant? @relation(fields: [mandantId], references: [id], onDelete: SetNull)
+  mandantId String?
 
   // Step 1 — Calculator / Antragsdaten
-  antragsjahr   Int?
-  branche       String?
+  antragsjahr    Int?
+  branche        String?
   geschaetzteKwh Int?
 
+  entlastungsabschnitt             Entlastungsabschnitt @default(KALENDERJAHR)
+  schaetzungNach17b                Boolean? // Formular 1453 Punkt 5
+  beschreibungTaetigkeitVorgelegt  BeschreibungStatus? // Punkt 2
+  stromAnDritteGeleistet           Boolean? // Punkt 6, erste Zeile
+  nutzenergieAnDritteWeitergegeben Boolean? // Punkt 6, zweite Zeile
+  entnahmeDurchDritten             Boolean? // Punkt 7
+  /// Selbsterklaerung zu staatlichen Beihilfen (Formular 1139) liegt vor.
+  beihilfeSelbsterklaerungVorhanden Boolean?
+
+  // Preis nach Preistabelle, eingefroren bei Vertragsschluss
+  preisEur            Decimal? @db.Decimal(12, 2)
+  preisTabelleVersion String?
+  istFolgejahr        Boolean  @default(false)
+
   // Step 2a — Lieferstellen (in eigener Tabelle)
-  lieferstellen Lieferstelle[]
+  lieferstellen         Lieferstelle[]
+  nutzenergieEmpfaenger NutzenergieEmpfaenger[]
 
   // Unveraenderliche Eingabe-/Aktions-Historie (Audit-Trail)
-  auditEvents   AuditEvent[]
+  auditEvents AuditEvent[]
 
-  // Step 2b — Triage (6 Ja/Nein + bedingte Schaetzungen)
-  triageKleinsteRechtsperson Boolean?
-  triageKeineFinanzschwierig Boolean? // UiS-Check; true = entlastungsfaehig
+  // Step 2b — Triage (Ja/Nein + bedingte Schaetzungen)
+  triageKleinsteRechtsperson  Boolean?
+  triageKeineFinanzschwierig  Boolean? // UiS-Check; true = entlastungsfaehig
   triageKeineEuRueckforderung Boolean? // true = ok, false = Hardstop
-  triagePrivatnutzung        Boolean?
-  triagePrivatnutzungKwh     Int?
-  triageEAutoLaden           Boolean?
-  triageEAutoKwh             Int?
-  triageEnergieAnDritte      Boolean? // true => needs1456 Flag
-
-  // Step 3a — Firmendaten
-  firmenname       String?
-  rechtsform       String?
-  geschaeftsfuehrer String?
-  vorname          String?
-  nachname         String?
-  telefon          String?
-  strasse          String?
-  plz              String?
-  ort              String?
+  triagePrivatnutzung         Boolean?
+  triagePrivatnutzungKwh      Int?
+  triageEAutoLaden            Boolean?
+  triageEAutoKwh              Int?
+  triageEnergieAnDritte       Boolean? // true => needs1456 Flag
 
   // Server-berechnete Werte (idempotent aus Lieferstellen + Triage abgeleitet)
   bruttoKwh        Int?
   nettoKwh         Int?
   bruttoErstattung Decimal? @db.Decimal(12, 2)
-  honorar          Decimal? @db.Decimal(12, 2)
-  nettoAuszahlung  Decimal? @db.Decimal(12, 2)
 
-  // Step 3b — Mandat & Signatur
-  email                 String?
+  // Step 3b — zwei getrennte Vertraege mit je eigener Signatur (TODO 1.4)
   agbAccepted           Boolean?
-  mandatAccepted        Boolean?
   vertretungsBerechtigt Boolean?
-  mandatSignedAt        DateTime?
   mandatSignerName      String?
   mandatSignerIp        String?
   mandatSignerUserAgent String?
-  signaturePngKey       String?
-  mandatPdfKey          String?
-  mandatPdfSha256       String? // SHA-256-Hex der signierten Mandat-PDF (Integritaetsnachweis)
   consentVersion        String? // Version des zugestimmten Wortlauts (legalTexts.CONSENT_VERSION)
   consentTextSha256     String? // SHA-256-Hex des kanonischen Einwilligungstexts
   mandatTimestampKey    String? // Reserve: Storage-Key eines RFC-3161-Zeitstempels (optional)
+
+  aufbereitungAccepted        Boolean?
+  aufbereitungSignedAt        DateTime?
+  aufbereitungSignaturePngKey String?
+  aufbereitungPdfKey          String?
+  aufbereitungPdfSha256       String?
+
+  kanzleimandatAccepted        Boolean?
+  kanzleimandatSignedAt        DateTime?
+  kanzleimandatSignaturePngKey String?
+  kanzleimandatPdfKey          String?
+  kanzleimandatPdfSha256       String?
 
   // Uebergabe an Kanzlei
   kanzleiPaketKey String?
@@ -87,18 +142,41 @@ model Application {
 
   @@index([status])
   @@index([expiresAt])
+  @@index([mandantId])
+}
+
+enum Entlastungsabschnitt {
+  KALENDERJAHR
+  HALBJAHR
+  QUARTAL
+  MONAT
+}
+
+enum BeschreibungStatus {
+  BEREITS_VORGELEGT
+  LIEGT_BEI
 }
 
 model Lieferstelle {
-  id            String      @id @default(cuid())
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicationId String
+  id       String @id @default(cuid())
+  antrag   Antrag @relation(fields: [antragId], references: [id], onDelete: Cascade)
+  antragId String
 
-  firmenname    String
-  adresse       String
-  plz           String?
-  hza           String?
-  jahresKwh     Int
+  firmenname String
+  adresse    String
+  plz        String?
+  hza        String?
+
+  // Formular 1453 Seite 2: Menge dreigeteilt
+  kwhEigenbetrieblich Int // Spalte 3: betriebliche Zwecke, ohne Sp. 4 und 5
+  kwhNutzenergiePG    Int @default(0) // Spalte 4: Nutzenergie, genutzt von anderen Unternehmen des Produzierenden Gewerbes
+  kwhNutzenergieLuF   Int @default(0) // Spalte 5: dito Land-/Forstwirtschaft
+
+  // Aus der Rechnung gelesen (OCR) — Grundlage fuer das Pruefprotokoll
+  versorger             String?
+  zeitraumVon           DateTime?
+  zeitraumBis           DateTime?
+  stromsteuerGezahltEur Decimal?  @db.Decimal(12, 2)
 
   belegFileKeys String[] // Supabase Storage Keys
   ocrConfidence Float?
@@ -106,10 +184,62 @@ model Lieferstelle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([applicationId])
+  @@index([antragId])
 }
 
-enum ApplicationStatus {
+model NutzenergieEmpfaenger {
+  id                        String          @id @default(cuid())
+  antrag                    Antrag          @relation(fields: [antragId], references: [id], onDelete: Cascade)
+  antragId                  String
+  firmenname                String
+  adresse                   String
+  kategorie                 Unternehmensart
+  mengeKwh                  Int
+  selbsterklaerungVorhanden Boolean         @default(false)
+
+  @@index([antragId])
+}
+
+model PortalZugang {
+  id                      String            @id @default(cuid())
+  mandant                 Mandant           @relation(fields: [mandantId], references: [id], onDelete: Cascade)
+  mandantId               String            @unique
+  elsterStatus            ElsterStatus      @default(UNBEKANNT)
+  portalKontoStatus       PortalKontoStatus @default(OFFEN)
+  vollmachtStatus         VollmachtStatus   @default(OFFEN)
+  beteiligtenNummer       String?
+  zugangscodeEingeloestAt DateTime?
+  scopeGeprueftAt         DateTime?
+  scopeGeprueftVon        String?
+  bescheidZustellungAktiv Boolean           @default(false)
+  eskalationsstufe        Int               @default(0)
+  letzteErinnerungAt      DateTime?
+  notizen                 String?
+}
+
+enum ElsterStatus {
+  UNBEKANNT
+  VORHANDEN
+  BEIM_STB
+  FEHLT
+  BEANTRAGT
+}
+
+enum PortalKontoStatus {
+  OFFEN
+  REGISTRIERT
+}
+
+enum VollmachtStatus {
+  OFFEN
+  ERTEILT
+  CODE_EINGELOEST
+  AKTIV
+  ABGELAUFEN
+  SCOPE_FALSCH
+}
+
+enum AntragStatus {
   DRAFT
   SIGNED
   PENDING_REVIEW
@@ -125,17 +255,17 @@ enum ApplicationStatus {
 /// ausgefuehrt und zusaetzlich per DB-Trigger hart blockiert
 /// (Migration `1_audit_immutable`).
 model AuditEvent {
-  id            String         @id @default(cuid())
-  application   Application?   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicationId String?
-  type          AuditEventType
-  actor         AuditActor     @default(CUSTOMER)
-  ip            String?
-  userAgent     String?
-  metadata      Json?
-  createdAt     DateTime       @default(now())
+  id        String         @id @default(cuid())
+  antrag    Antrag?        @relation(fields: [antragId], references: [id], onDelete: Cascade)
+  antragId  String?
+  type      AuditEventType
+  actor     AuditActor     @default(CUSTOMER)
+  ip        String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime       @default(now())
 
-  @@index([applicationId])
+  @@index([antragId])
   @@index([type])
   @@index([createdAt])
 }
@@ -155,4 +285,7 @@ enum AuditEventType {
   APPLICATION_SUBMITTED
   STATUS_CHANGED
   DRAFT_EXPIRED
+  AUFBEREITUNG_SIGNED
+  KANZLEIMANDAT_SIGNED
+  DATENBLATT_ERZEUGT
 }

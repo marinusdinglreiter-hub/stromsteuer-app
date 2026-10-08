@@ -18,12 +18,19 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export type {
-  Application,
-  ApplicationStatus,
+  Antrag,
+  AntragStatus,
   AuditEvent,
   AuditActor,
   AuditEventType,
+  BeschreibungStatus,
+  Entlastungsabschnitt,
   Lieferstelle,
+  Mandant,
+  NutzenergieEmpfaenger,
+  PortalZugang,
   PrismaClient,
   Prisma,
+  Unternehmensart,
+  VollmachtStatus,
 } from "@prisma/client";
