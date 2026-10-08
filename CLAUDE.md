@@ -10,14 +10,14 @@ B2B-Web-App, die deutschen Gewerbekunden die Stromsteuer-Erstattung nach
   `/status/<token>`.
 - Der Kunde durchlaeuft einen Wizard, laedt Stromrechnungen hoch (OCR optional)
   und **unterschreibt ein Mandat** per Signatur-Canvas.
-- Eine **Partnerkanzlei** (aktuell WINDORFER RODE Rechtsanwaelte) reicht beim
-  Hauptzollamt ein und uebernimmt die Vertretung.
-- **Verguetung: Erfolgshonorar 14,1 % (§ 4a RVG) der Erstattung nach 250-€-Sockel,
-  Mindesthonorar 500 €.** Nur im Erfolgsfall. Siehe `packages/api/src/calc/stromsteuer.ts`.
+- Eine **Partnerkanzlei** (`[KANZLEI]`, noch nicht ausgewaehlt) stellt den Antrag
+  im Zoll-Portal und uebernimmt die Vertretung.
+- **Verguetung: zwei getrennte Rechnungen.** Wir berechnen die Aufbereitung als
+  **Festpreis nach Verbrauchsband** (`packages/api/src/calc/preise.ts`), die Kanzlei
+  stellt ihre Vertretung separat in Rechnung. Kein Prozentsatz der Erstattung, keine
+  Gebuehrenteilung (§ 49b BRAO, § 9 StBerG).
 
-> Wichtig: Das traegt rechtlich, weil eine echte Kanzlei einreicht (nicht die
-> Software). Das alte Self-Submit-/Festpreis-/Stripe-/ELSTER-Modell ist **ueberholt** —
-> nicht zurueckbauen.
+> Verbindliche Quelle fuer Geschaeftsregeln ist `TODO.md`. Bei Widerspruch gilt sie.
 
 ## Tech-Stack (Ist-Zustand)
 
@@ -34,7 +34,7 @@ B2B-Web-App, die deutschen Gewerbekunden die Stromsteuer-Erstattung nach
 - Monorepo: Turborepo + pnpm
 
 **Nicht im Einsatz** (waren im alten Plan, bewusst NICHT gebaut): Stripe, Auth.js/2FA,
-ELSTER-XML / Formular 1453. Sentry/Plausible sind optional ueber Env vorgesehen.
+ELSTER-XML / befuelltes Formular 1453 (§ 9b ist seit 2025 online-pflichtig). Sentry/Plausible sind optional ueber Env vorgesehen.
 
 ## Repo-Struktur (real)
 
@@ -68,8 +68,9 @@ ELSTER-XML / Formular 1453. Sentry/Plausible sind optional ueber Env vorgesehen.
 
 1. **Keine Steuerberatung durch die Software.** Bewertende Fragen beantwortet der
    Kunde; die Kanzlei reicht ein.
-2. **Honorar = RVG-Erfolgshonorar (14,1 %, Floor 500 €)** — Logik nur in
-   `calc/stromsteuer.ts`, nirgends duplizieren.
+2. **Preis = Festpreis nach Verbrauchsband** — Logik nur in `calc/preise.ts`,
+   Erstattung nur in `calc/stromsteuer.ts` (Saetze in `calc/rates.ts`), nirgends
+   duplizieren. Kein Preis je MWh (waere mathematisch ein Prozentsatz der Erstattung).
 3. **Audit-Log ist unveraenderlich.** Jede relevante Aktion schreibt einen
    `AuditEvent` (siehe `packages/api/src/audit.ts`); geldrelevante Schritte in
    derselben DB-Transaktion. UPDATE/DELETE per DB-Trigger blockiert.
@@ -89,7 +90,7 @@ schritt-3 (Firma + Mandat/Signatur) → `/antrag/danke` (submit, Kanzlei-Paket +
 
 ## Wichtige Dateien
 
-- `packages/api/src/calc/stromsteuer.ts` — Erstattungs-/Honorarberechnung (getestet)
+- `packages/api/src/calc/stromsteuer.ts` — Erstattungsberechnung (getestet), `calc/preise.ts` Festpreise
 - `packages/api/src/routers/application.ts` — Wizard-Mutations (bootstrap..submit)
 - `packages/api/src/routers/admin.ts` — Backoffice (Status, expireDrafts)
 - `packages/api/src/audit.ts` — Audit-Log-Helper
