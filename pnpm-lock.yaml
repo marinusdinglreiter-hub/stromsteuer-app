@@ -17,6 +17,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@stromsteuer/antrag':
+        specifier: workspace:*
+        version: link:../../packages/antrag
       '@stromsteuer/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -79,11 +82,39 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
+  packages/antrag:
+    dependencies:
+      '@stromsteuer/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      '@stromsteuer/eslint-config':
+        specifier: workspace:*
+        version: link:../config/eslint
+      '@stromsteuer/tsconfig':
+        specifier: workspace:*
+        version: link:../config/tsconfig
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.19
+      eslint:
+        specifier: ^8.57.1
+        version: 8.57.1
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.19)
+
   packages/api:
     dependencies:
       '@aws-sdk/client-textract':
         specifier: ^3.717.0
         version: 3.1065.0
+      '@stromsteuer/antrag':
+        specifier: workspace:*
+        version: link:../antrag
       '@stromsteuer/db':
         specifier: workspace:*
         version: link:../db
