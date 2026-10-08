@@ -3,6 +3,11 @@
 Diese Datei sagt, welches Dokument wann zu lesen ist. Alle Pfade sind relativ
 zum Repo-Root.
 
+> Die internen Dokumente `10` bis `70` (Preismodell, Wettbewerb, Vertrieb,
+> Architektur-Optionen, Historie) liegen nur lokal und sind nicht Teil des
+> öffentlichen Repos. Fachlich nötig sind `formulare/1453-feldspezifikation.md`,
+> `20-vollmachts-onboarding.md` und `90-quellen.md`; die sind enthalten.
+
 ## Reihenfolge für eine neue Session
 
 1. `../TODO.md` — **die verbindliche Arbeitsliste und Quelle für
@@ -10,8 +15,6 @@ zum Repo-Root.
    Prisma-Blöcke, Code-Gerüste, Akzeptanzkriterien und „Nicht tun"-Hinweise.
    Bei Widerspruch zu irgendeinem anderen Dokument gilt TODO.md.
 2. `../CLAUDE.md` — Projektkontext, Konventionen, Repo-Struktur, Dev-Befehle.
-   **Achtung:** enthält bis zur Erledigung von TODO-Aufgabe 0.4 überholte
-   Geschäftsregeln (Erfolgshonorar, Partnerkanzlei WINDORFER RODE).
 3. `10-entscheidung-abrechnungsstruktur.md` — warum es kein Erfolgshonorar mehr
    gibt und wie das Preismodell aussieht. Lesen, bevor an `calc/` gearbeitet
    wird.

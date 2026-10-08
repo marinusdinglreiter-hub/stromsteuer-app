@@ -35,7 +35,7 @@ jobs:
         run: pnpm typecheck
 
       - name: Unit tests
-        run: pnpm --filter @stromsteuer/api test
+        run: pnpm --filter @stromsteuer/api --filter @stromsteuer/antrag test
 
       - name: Build
         # Dummy-DB-URLs: Prisma/Next bauen ohne DB-Verbindung (dynamische Seiten

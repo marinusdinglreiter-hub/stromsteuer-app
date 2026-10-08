@@ -10,6 +10,14 @@ build/
 *.tsbuildinfo
 .turbo/
 
+# Interne Strategie-Dokumente: nur lokal, nicht im oeffentlichen Repo
+docs/10-entscheidung-abrechnungsstruktur.md
+docs/30-wettbewerb-und-einreichungsmodelle.md
+docs/40-vertrieb-outsourcing.md
+docs/50-plan-antrags-engine.md
+docs/60-geschaeftsmodell-historie.md
+docs/70-code-plan-ueberholt.md
+
 # Env files (commit only the example)
 .env
 .env.local

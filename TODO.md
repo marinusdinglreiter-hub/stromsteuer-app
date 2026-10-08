@@ -84,8 +84,7 @@ Akzeptanz: alles grün. Wenn nicht, hier stoppen und melden, nichts weiterbauen.
 ### 0.3 Migrations anwenden
 
 > **Blockiert (08.10.2026):** Die Supabase-Datenbank ist nicht erreichbar
-> (`tenant/user postgres.qgjefuiradlfwhbtpnzg not found`, Projekt vermutlich
-> pausiert). Im Supabase-Dashboard fortsetzen, dann `0_init` bis
+> (`tenant/user … not found`, Projekt vermutlich pausiert). Im Supabase-Dashboard fortsetzen, dann `0_init` bis
 > `3_mandant_bankverbindung_mengen` deployen.
 
 - [ ] `pnpm --filter @stromsteuer/db exec prisma migrate deploy`
