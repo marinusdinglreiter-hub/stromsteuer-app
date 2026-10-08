@@ -1,9 +1,12 @@
-import { calculateErstattung, CONSENT_VERSION } from "@stromsteuer/api";
+import { CONSENT_VERSION } from "@stromsteuer/api";
 import { ShieldCheck } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { Callout } from "@stromsteuer/ui/callout";
+
 import { MandatForm } from "@/components/wizard/MandatForm";
+import { BRAND } from "@/config/brand";
 import { Stepper } from "@/components/wizard/Stepper";
 import { SESSION_COOKIE_NAME } from "@/server/session";
 import { getServerCaller } from "@/server/trpc";
@@ -18,24 +21,18 @@ export default async function VollmachtPage() {
 
   const caller = await getServerCaller();
   const application = await caller.application.current();
+  const mandant = application.mandant;
 
-  if (!application.firmenname || !application.geschaeftsfuehrer) {
+  if (!mandant?.firmenname || !mandant.geschaeftsfuehrer || !mandant.iban) {
     redirect("/antrag/schritt-3/firma");
   }
   if (application.triageKleinsteRechtsperson === null) {
     redirect("/antrag/schritt-2/erklaerungen");
   }
 
-  // Aktualisierte Berechnung fuer den Display.
-  const lieferstellenSumme = application.lieferstellen.reduce(
-    (acc, l) => acc + l.jahresKwh,
-    0,
-  );
-  const result = calculateErstattung({
-    bruttoKwh: lieferstellenSumme || (application.geschaeftsfuehrer ? 0 : 0),
-    privatnutzungKwh: application.triagePrivatnutzungKwh ?? 0,
-    eAutoKwh: application.triageEAutoKwh ?? 0,
-  });
+  // Kostenlose Vorpruefung vor Vertragsschluss: nicht anspruchsberechtigte
+  // Faelle sehen die Begruendung statt eines Vertrags.
+  const { ergebnis, berechnung, preis } = await caller.application.vorpruefung();
 
   return (
     <>
@@ -47,26 +44,38 @@ export default async function VollmachtPage() {
               <ShieldCheck className="h-6 w-6" />
             </div>
             <h1 className="mt-3 text-2xl font-bold text-foreground">
-              Letzter Schritt: Vollmacht unterschreiben
+              Letzter Schritt: zwei Verträge unterschreiben
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Die Partnerkanzlei reicht Ihren Antrag beim Hauptzollamt ein. Sie
-              zahlen nur bei Erfolg.
+              Wir bereiten Ihre Unterlagen zum Festpreis auf. Die Partnerkanzlei
+              stellt den Antrag im Zoll-Portal und rechnet ihre Vertretung selbst ab.
             </p>
           </div>
           <div className="mt-6">
-            <MandatForm
-              consentVersion={CONSENT_VERSION}
-              firmenname={application.firmenname}
-              geschaeftsfuehrer={application.geschaeftsfuehrer}
-              antragsjahr={
-                application.antragsjahr ?? new Date().getFullYear() - 1
-              }
-              bruttoErstattung={Number(application.bruttoErstattung ?? result.bruttoErstattung)}
-              honorar={Number(application.honorar ?? result.honorar)}
-              honorarSatz={result.honorarSatz}
-              nettoAuszahlung={Number(application.nettoAuszahlung ?? result.nettoAuszahlung)}
-            />
+            {ergebnis.status === "hardstop" ? (
+              <Callout variant="danger" title="Ein Antrag ist in Ihrem Fall nicht möglich">
+                <ul className="list-disc space-y-1 pl-4">
+                  {ergebnis.gruende.map((g) => (
+                    <li key={g}>{g}</li>
+                  ))}
+                </ul>
+                <p className="mt-2">Es kommt kein Vertrag zustande, Ihnen entstehen keine Kosten.</p>
+              </Callout>
+            ) : preis.band === null ? (
+              <Callout variant="neutral" title="Kein Festpreis für diesen Verbrauch">
+                Für unter 150 MWh nach Abzügen bieten wir derzeit keine Aufbereitung an. Schreiben Sie
+                uns an {BRAND.email}, wenn Sie Fragen haben.
+              </Callout>
+            ) : (
+              <MandatForm
+                consentVersion={CONSENT_VERSION}
+                firmenname={mandant.firmenname}
+                geschaeftsfuehrer={mandant.geschaeftsfuehrer}
+                antragsjahr={application.antragsjahr ?? new Date().getFullYear() - 1}
+                erstattung={berechnung.auszahlung}
+                preisEur={preis.preisEur}
+              />
+            )}
           </div>
         </div>
       </div>

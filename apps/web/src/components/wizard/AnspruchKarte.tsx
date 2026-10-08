@@ -1,4 +1,4 @@
-import { ENTLASTUNGSSATZ_EUR_PRO_KWH, type CalcResult } from "@stromsteuer/api";
+import type { CalcResult } from "@stromsteuer/api";
 import { preisFuer } from "@stromsteuer/api/calc/preise";
 import { Badge } from "@stromsteuer/ui/badge";
 
@@ -21,7 +21,7 @@ type Props = {
 export function AnspruchKarte({ result }: Props) {
   const erstattung = erstattungNachSelbstbehalt(result);
   const preis = preisFuer(result.nettoKwh / 1000);
-  const satz = (ENTLASTUNGSSATZ_EUR_PRO_KWH * 1000).toLocaleString("de-DE", {
+  const satz = result.satzEurProMwh.toLocaleString("de-DE", {
     minimumFractionDigits: 2,
   });
 

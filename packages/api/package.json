@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./calc": "./src/calc/stromsteuer.ts",
     "./calc/preise": "./src/calc/preise.ts",
+    "./legal": "./src/forms/legalTexts.ts",
     "./router": "./src/router.ts",
     "./trpc": "./src/trpc.ts"
   },

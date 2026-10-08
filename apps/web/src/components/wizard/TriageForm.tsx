@@ -6,9 +6,12 @@ import {
   ArrowRight,
   Building2,
   Car,
+  FileCheck,
   Flame,
   Home,
+  PlugZap,
   Scale,
+  Users,
 } from "lucide-react";
 import { useState, useTransition } from "react";
 
@@ -30,6 +33,9 @@ export type TriageInitial = {
   eAutoLaden: boolean | null;
   eAutoKwh: number | null;
   energieAnDritte: boolean | null;
+  stromAnDritte: boolean | null;
+  entnahmeDurchDritten: boolean | null;
+  beihilfeSelbsterklaerung: boolean | null;
 };
 
 type State = {
@@ -41,6 +47,9 @@ type State = {
   eAutoLaden: TriageAnswer;
   eAutoKwh: number;
   energieAnDritte: TriageAnswer;
+  stromAnDritte: TriageAnswer;
+  entnahmeDurchDritten: TriageAnswer;
+  beihilfeSelbsterklaerung: TriageAnswer;
 };
 
 export function TriageForm({ initial }: { initial: TriageInitial }) {
@@ -53,6 +62,9 @@ export function TriageForm({ initial }: { initial: TriageInitial }) {
     eAutoLaden: initial.eAutoLaden,
     eAutoKwh: initial.eAutoKwh ?? 0,
     energieAnDritte: initial.energieAnDritte,
+    stromAnDritte: initial.stromAnDritte,
+    entnahmeDurchDritten: initial.entnahmeDurchDritten,
+    beihilfeSelbsterklaerung: initial.beihilfeSelbsterklaerung,
   });
   const [pending, startTransition] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -69,6 +81,9 @@ export function TriageForm({ initial }: { initial: TriageInitial }) {
       "privatnutzung",
       "eAutoLaden",
       "energieAnDritte",
+      "stromAnDritte",
+      "entnahmeDurchDritten",
+      "beihilfeSelbsterklaerung",
     ] as const
   ).every((k) => state[k] !== null);
 
@@ -104,6 +119,9 @@ export function TriageForm({ initial }: { initial: TriageInitial }) {
       state.eAutoLaden === true ? String(state.eAutoKwh) : "",
     );
     formData.set("energieAnDritte", String(state.energieAnDritte === true));
+    formData.set("stromAnDritte", String(state.stromAnDritte === true));
+    formData.set("entnahmeDurchDritten", String(state.entnahmeDurchDritten === true));
+    formData.set("beihilfeSelbsterklaerung", String(state.beihilfeSelbsterklaerung === true));
 
     startTransition(async () => {
       try {
@@ -220,6 +238,60 @@ export function TriageForm({ initial }: { initial: TriageInitial }) {
             ? {
                 variant: "info",
                 text: "Wir kennzeichnen Ihren Antrag intern als '1456 erforderlich' — die Kanzlei kümmert sich darum.",
+              }
+            : undefined
+        }
+      />
+
+      <TriageCard
+        icon={PlugZap}
+        title="Stromlieferung an Dritte"
+        description="Strom, den Sie an andere leisten (z. B. Untermieter, Ladepunkte für Fremde), ist nicht entlastungsfähig und gehört nicht in den Antrag (Formular 1453, Punkt 6)."
+        question="Leisten Sie Strom an Dritte?"
+        tooltip="Gemeint ist Strom selbst, nicht daraus erzeugte Wärme, Kälte oder Druckluft."
+        answer={state.stromAnDritte}
+        onAnswerChange={(v) => answer("stromAnDritte", v)}
+        hint={
+          state.stromAnDritte === true
+            ? {
+                variant: "info",
+                text: "Bitte ziehen Sie diese Mengen von den Verbräuchen Ihrer Lieferstellen ab. Die Kanzlei fragt im Zweifel nach.",
+              }
+            : undefined
+        }
+      />
+
+      <TriageCard
+        icon={Users}
+        title="Entnahme durch einen Dritten"
+        description="Die Entlastung erhält nur, wer den Strom selbst entnimmt — die kleinste rechtlich selbständige Einheit (Formular 1453, Punkt 7)."
+        question="Entnimmt ein anderes Unternehmen (z. B. eine Betriebsführungsgesellschaft) den Strom an Ihrer Stelle?"
+        tooltip="Konzernverbund oder Organschaft spielen dafür keine Rolle."
+        answer={state.entnahmeDurchDritten}
+        onAnswerChange={(v) => answer("entnahmeDurchDritten", v)}
+        hint={
+          state.entnahmeDurchDritten === true
+            ? {
+                variant: "warning",
+                text: "Dann muss in der Regel das entnehmende Unternehmen den Antrag stellen. Die Kanzlei prüft das.",
+              }
+            : undefined
+        }
+      />
+
+      <TriageCard
+        icon={FileCheck}
+        title="Selbsterklärung zu staatlichen Beihilfen"
+        description="Die Entlastung ist eine staatliche Beihilfe. Für das erste Antragsjahr eines Kalenderjahres ist die Selbsterklärung (Formular 1139) Pflichtanlage."
+        question="Geben Sie die Selbsterklärung zu staatlichen Beihilfen (Formular 1139) ab?"
+        tooltip="Die Kanzlei schickt Ihnen den Vordruck zur Unterschrift."
+        answer={state.beihilfeSelbsterklaerung}
+        onAnswerChange={(v) => answer("beihilfeSelbsterklaerung", v)}
+        hint={
+          state.beihilfeSelbsterklaerung === false
+            ? {
+                variant: "warning",
+                text: "Ohne Selbsterklärung kann der Antrag nicht eingereicht werden.",
               }
             : undefined
         }

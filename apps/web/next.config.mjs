@@ -56,6 +56,7 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: [
+    "@stromsteuer/antrag",
     "@stromsteuer/api",
     "@stromsteuer/db",
     "@stromsteuer/ui",

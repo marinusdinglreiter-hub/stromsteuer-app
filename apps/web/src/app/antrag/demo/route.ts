@@ -1,5 +1,5 @@
 /**
- * Demo-Route: legt eine vorausgefuellte Muster-Application an und leitet
+ * Demo-Route: legt einen vorausgefuellten Muster-Antrag an und leitet
  * direkt auf Schritt 2 weiter. Nur fuer lokale Entwicklung gedacht.
  *
  * Aufruf: GET /antrag/demo
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   const sessionToken = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
-  const application = await prisma.application.create({
+  const antrag = await prisma.antrag.create({
     data: {
       sessionToken,
       expiresAt,
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
           firmenname: "Stadtwerke Musterhausen GmbH",
           adresse: "Industriestraße 27, 54321 Beispielstadt",
           plz: "54321",
-          jahresKwh: 48560,
+          kwhEigenbetrieblich: 48560,
           belegFileKeys: [],
           ocrConfidence: 0.75,
         },
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  void application; // wird nur fuer den Session-Cookie gebraucht
+  void antrag; // wird nur fuer den Session-Cookie gebraucht
 
   const target = new URL(
     "/antrag/schritt-2/lieferstellen",

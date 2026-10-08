@@ -32,9 +32,11 @@ export default function AgbPage() {
 
       <Section title="§ 3 Vergütung">
         <p>
-          Die Vergütung ist als Erfolgshonorar gemäß § 4a RVG ausgestaltet. Bei
-          Ablehnung des Antrags entstehen Ihnen keinerlei Kosten. Mindesthonorar
-          im Erfolgsfall: 500 € (siehe Mandatsvereinbarung).
+          [JURISTISCH ZU PRÜFEN] Für die Aufbereitung berechnen wir einen
+          Festpreis nach Verbrauchsband, der vor Vertragsschluss feststeht und
+          unabhängig vom Bescheid fällig wird (siehe Aufbereitungsvertrag). Die
+          Vorprüfung ist kostenlos. Die Kanzlei rechnet ihre Vertretung
+          gesondert ab. Eine Erstattung in bestimmter Höhe sagen wir nicht zu.
         </p>
       </Section>
 

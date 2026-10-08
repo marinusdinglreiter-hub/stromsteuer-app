@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@stromsteuer/ui/button";
-import { ArrowRight, Building2, MapPin, User } from "lucide-react";
+import { ArrowRight, Building2, Landmark, MapPin, Receipt, User } from "lucide-react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import {
@@ -21,6 +21,15 @@ export type FirmaInitial = {
   strasse: string;
   plz: string;
   ort: string;
+  unternehmensart: "" | "PRODUZIERENDES_GEWERBE" | "LAND_FORSTWIRTSCHAFT";
+  steuernummer: string;
+  ustIdNr: string;
+  handelsregister: string;
+  wzCode: string;
+  hauptzollamt: string;
+  kontoinhaber: string;
+  iban: string;
+  bic: string;
 };
 
 export function FirmaForm({ initial }: { initial: FirmaInitial }) {
@@ -136,6 +145,100 @@ export function FirmaForm({ initial }: { initial: FirmaInitial }) {
             />
           </Field>
         </div>
+      </Section>
+
+      <Section icon={Receipt} title="Steuerliche Angaben (Formular 1453, Abschnitt 1)">
+        <Field label="Unternehmensart" required>
+          <select
+            name="unternehmensart"
+            required
+            defaultValue={initial.unternehmensart}
+            className={INPUT}
+          >
+            <option value="" disabled>
+              Bitte wählen
+            </option>
+            <option value="PRODUZIERENDES_GEWERBE">
+              Produzierendes Gewerbe (§ 2 Nr. 3 StromStG)
+            </option>
+            <option value="LAND_FORSTWIRTSCHAFT">
+              Land- und Forstwirtschaft (§ 2 Nr. 5 StromStG)
+            </option>
+            <option value="KEINE">Keines von beiden</option>
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Die Zuordnung richtet sich nach Ihrer Haupttätigkeit (Klassifikation der
+            Wirtschaftszweige). Im Zweifel klärt das die Kanzlei.
+          </p>
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Steuernummer" required>
+            <input
+              name="steuernummer"
+              required
+              defaultValue={initial.steuernummer}
+              placeholder="z. B. 244/123/45678"
+              className={INPUT}
+            />
+          </Field>
+          <Field label="Zuständiges Hauptzollamt" required>
+            <input
+              name="hauptzollamt"
+              required
+              defaultValue={initial.hauptzollamt}
+              placeholder="z. B. Regensburg"
+              className={INPUT}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Nach Ihrem Geschäftssitz, nicht nach der Lieferstelle.
+            </p>
+          </Field>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="USt-IdNr. (optional)">
+            <input name="ustIdNr" defaultValue={initial.ustIdNr} placeholder="DE…" className={INPUT} />
+          </Field>
+          <Field label="Handelsregister (optional)">
+            <input
+              name="handelsregister"
+              defaultValue={initial.handelsregister}
+              placeholder="HRB 12345"
+              className={INPUT}
+            />
+          </Field>
+          <Field label="WZ-Code (optional)">
+            <input name="wzCode" defaultValue={initial.wzCode} placeholder="25.11" className={INPUT} />
+          </Field>
+        </div>
+      </Section>
+
+      <Section icon={Landmark} title="Bankverbindung für die Erstattung">
+        <Field label="Kontoinhaber" required>
+          <input
+            name="kontoinhaber"
+            required
+            defaultValue={initial.kontoinhaber}
+            className={INPUT}
+          />
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+          <Field label="IBAN" required>
+            <input
+              name="iban"
+              required
+              defaultValue={initial.iban}
+              placeholder="DE00 0000 0000 0000 0000 00"
+              autoComplete="off"
+              className={INPUT}
+            />
+          </Field>
+          <Field label="BIC (optional)">
+            <input name="bic" defaultValue={initial.bic} className={INPUT} />
+          </Field>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Das Hauptzollamt überweist die Erstattung direkt auf dieses Konto.
+        </p>
       </Section>
 
       {state && !state.ok ? <FormAlert>{state.error}</FormAlert> : null}

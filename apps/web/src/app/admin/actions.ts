@@ -35,6 +35,31 @@ export async function adminUpdateStatusAction(
   return { ok: true };
 }
 
+const VOLLMACHT_STATUS = [
+  "OFFEN",
+  "ERTEILT",
+  "CODE_EINGELOEST",
+  "AKTIV",
+  "ABGELAUFEN",
+  "SCOPE_FALSCH",
+] as const;
+
+/** Portal-Vollmacht des Mandanten setzen (Formular-Action im Backoffice). */
+export async function adminSetPortalVollmachtAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("vollmachtStatus") ?? "");
+  const beteiligtenNummer = String(formData.get("beteiligtenNummer") ?? "").trim();
+  const vollmachtStatus = VOLLMACHT_STATUS.find((s) => s === status);
+  if (!id || !vollmachtStatus) return;
+  const caller = await getAdminServerCaller();
+  await caller.admin.setPortalVollmacht({
+    id,
+    vollmachtStatus,
+    beteiligtenNummer: beteiligtenNummer.length > 0 ? beteiligtenNummer : undefined,
+  });
+  revalidatePath(`/admin/${id}`);
+}
+
 export async function adminExpireDraftsAction(): Promise<
   AdminActionResult & { stats?: Awaited<ReturnType<typeof callExpire>> }
 > {

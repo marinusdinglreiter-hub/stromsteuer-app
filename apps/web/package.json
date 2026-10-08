@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@stromsteuer/antrag": "workspace:*",
     "@stromsteuer/api": "workspace:*",
     "@stromsteuer/db": "workspace:*",
     "@stromsteuer/ui": "workspace:*",

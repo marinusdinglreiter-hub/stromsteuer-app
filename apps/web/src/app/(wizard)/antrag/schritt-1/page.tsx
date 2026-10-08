@@ -42,7 +42,7 @@ export default async function Schritt1Page({ searchParams }: Props) {
 
   // Brutto-kWh: nach Triage = Summe der Lieferstellen; sonst = Schaetzung aus Landing.
   const lieferstellenSumme = application.lieferstellen.reduce(
-    (acc, l) => acc + l.jahresKwh,
+    (acc, l) => acc + l.kwhEigenbetrieblich + l.kwhNutzenergiePG + l.kwhNutzenergieLuF,
     0,
   );
   const bruttoKwh =
@@ -51,6 +51,7 @@ export default async function Schritt1Page({ searchParams }: Props) {
       : (application.geschaetzteKwh ?? 0);
 
   const result = calculateErstattung({
+    verbrauchsjahr: antragsjahr,
     bruttoKwh,
     privatnutzungKwh: application.triagePrivatnutzungKwh ?? 0,
     eAutoKwh: application.triageEAutoKwh ?? 0,

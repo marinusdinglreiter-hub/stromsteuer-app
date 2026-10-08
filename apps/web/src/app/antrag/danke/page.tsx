@@ -47,11 +47,11 @@ export default async function DankePage() {
             prüft den Antrag und reicht ihn beim Hauptzollamt ein.
           </p>
 
-          {application.email ? (
+          {application.mandant?.email ? (
             <div className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
               <Mail className="h-4 w-4 shrink-0" aria-hidden />
-              Die Bestätigung und die unterzeichnete Vollmacht haben wir an{" "}
-              <strong className="text-foreground">{application.email}</strong>{" "}
+              Die Bestätigung und die unterzeichneten Verträge haben wir an{" "}
+              <strong className="text-foreground">{application.mandant.email}</strong>{" "}
               geschickt.
             </div>
           ) : null}

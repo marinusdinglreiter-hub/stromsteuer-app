@@ -1,21 +1,26 @@
 import {
+  AlertTriangle,
   ArrowLeft,
   Building2,
+  CheckCircle2,
   Download,
   ExternalLink,
+  FileSpreadsheet,
   FileText,
+  KeyRound,
+  Landmark,
   Mail,
   Phone,
   Scale,
   Zap,
 } from "lucide-react";
-import { preisFuer } from "@stromsteuer/api/calc/preise";
 import { Badge } from "@stromsteuer/ui/badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { adminSetPortalVollmachtAction } from "@/app/admin/actions";
 import { StatusActions } from "@/components/admin/StatusActions";
-import { erstattungNachSelbstbehalt, formatEurRund } from "@/lib/format";
+import { formatEurRund } from "@/lib/format";
 import { statusMeta } from "@/lib/status";
 import { getAdminServerCaller } from "@/server/trpc-admin";
 
@@ -63,9 +68,9 @@ export default async function AdminDetailPage({ params }: Props) {
   }
 
   const meta = statusMeta(app.status);
-  const bruttoErstattung =
-    app.bruttoErstattung !== null ? Number(app.bruttoErstattung) : null;
-  const preis = app.nettoKwh !== null ? preisFuer(app.nettoKwh / 1000) : null;
+  const m = app.mandant;
+  const preisEur = app.preisEur !== null ? Number(app.preisEur) : null;
+  const vollmacht = m?.portalZugang?.vollmachtStatus ?? "OFFEN";
 
   return (
     <div>
@@ -79,7 +84,7 @@ export default async function AdminDetailPage({ params }: Props) {
 
       <div className="mb-6 mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {app.firmenname ?? "Ohne Firmenname"}
+          {m?.firmenname ?? "Ohne Firmenname"}
         </h1>
         <Badge variant={meta.badge}>{meta.label}</Badge>
         <span className="text-sm text-muted-foreground">
@@ -92,26 +97,26 @@ export default async function AdminDetailPage({ params }: Props) {
           {/* Mandant */}
           <Card>
             <CardHeader icon={Building2} title="Mandant" />
-            <KV label="Firmenname" value={app.firmenname ?? "—"} />
-            <KV label="Rechtsform" value={app.rechtsform ?? "—"} />
-            <KV label="Geschäftsführer" value={app.geschaeftsfuehrer ?? "—"} />
+            <KV label="Firmenname" value={m?.firmenname ?? "—"} />
+            <KV label="Rechtsform" value={m?.rechtsform ?? "—"} />
+            <KV label="Geschäftsführer" value={m?.geschaeftsfuehrer ?? "—"} />
             <KV
               label="Vorname / Nachname"
-              value={`${app.vorname ?? "—"} ${app.nachname ?? ""}`.trim()}
+              value={`${m?.vorname ?? "—"} ${m?.nachname ?? ""}`.trim()}
             />
             <KV label="Adresse"
-              value={`${app.strasse ?? "—"}, ${app.plz ?? ""} ${app.ort ?? ""}`.trim()}
+              value={`${m?.strasse ?? "—"}, ${m?.plz ?? ""} ${m?.ort ?? ""}`.trim()}
             />
             <KV
               label="E-Mail"
               value={
-                app.email ? (
+                m?.email ? (
                   <a
-                    href={`mailto:${app.email}`}
+                    href={`mailto:${m.email}`}
                     className="text-primary hover:underline"
                   >
                     <Mail className="mr-1 inline h-3 w-3" />
-                    {app.email}
+                    {m.email}
                   </a>
                 ) : (
                   "—"
@@ -121,13 +126,13 @@ export default async function AdminDetailPage({ params }: Props) {
             <KV
               label="Telefon"
               value={
-                app.telefon ? (
+                m?.telefon ? (
                   <a
-                    href={`tel:${app.telefon}`}
+                    href={`tel:${m.telefon}`}
                     className="text-primary hover:underline"
                   >
                     <Phone className="mr-1 inline h-3 w-3" />
-                    {app.telefon}
+                    {m.telefon}
                   </a>
                 ) : (
                   "—"
@@ -138,35 +143,51 @@ export default async function AdminDetailPage({ params }: Props) {
             <KV label="Status" value={<Badge variant={meta.badge}>{meta.label}</Badge>} />
           </Card>
 
+          {/* Steuer und Bank */}
+          <Card>
+            <CardHeader icon={Landmark} title="Steuer- und Bankdaten (Formular 1453)" />
+            <KV
+              label="Unternehmensart"
+              value={
+                m?.unternehmensart === "PRODUZIERENDES_GEWERBE"
+                  ? "Produzierendes Gewerbe"
+                  : m?.unternehmensart === "LAND_FORSTWIRTSCHAFT"
+                    ? "Land- und Forstwirtschaft"
+                    : "—"
+              }
+            />
+            <KV label="Steuernummer" value={m?.steuernummer ?? "—"} />
+            <KV label="Hauptzollamt" value={m?.hauptzollamt ?? "—"} />
+            <KV label="Kontoinhaber" value={m?.kontoinhaber ?? "—"} />
+            <KV label="IBAN" value={m?.iban ? <code className="text-xs">{m.iban}</code> : "—"} />
+          </Card>
+
           {/* Berechnung */}
           <Card>
             <CardHeader icon={Zap} title="Verbrauch und Berechnung" />
             <KV label="Antragsjahr" value={app.antragsjahr ?? "—"} />
             <KV label="Brutto-kWh (Summe)" value={formatKwh(app.bruttoKwh)} />
             <KV label="Netto-kWh (nach Abzügen)" value={formatKwh(app.nettoKwh)} />
-            <KV label="Entlastung" value={formatEur(bruttoErstattung)} />
+            <KV
+              label={`Entlastung (${app.berechnung.satzEurProMwh.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €/MWh)`}
+              value={formatEur(app.berechnung.bruttoErstattung)}
+            />
             <KV
               label="Erstattung nach Selbstbehalt"
               value={
                 <span className="font-semibold text-success">
-                  {bruttoErstattung !== null
-                    ? formatEur(
-                        erstattungNachSelbstbehalt({ bruttoErstattung, sockel: 250 }),
-                      )
-                    : "—"}
+                  {formatEur(app.berechnung.auszahlung)}
                 </span>
               }
             />
             <KV
-              label={`Aufbereitung (Festpreis, Tabelle ${preis?.version ?? "—"})`}
+              label={`Aufbereitung (Festpreis, Tabelle ${app.preisTabelleVersion ?? "—"})`}
               value={
-                preis === null
-                  ? "—"
-                  : preis.preisEur !== null
-                    ? formatEurRund(preis.preisEur)
-                    : preis.band
-                      ? "individuell"
-                      : "unter 150 MWh"
+                preisEur !== null
+                  ? formatEurRund(preisEur)
+                  : app.aufbereitungSignedAt
+                    ? "individuelles Angebot"
+                    : "noch nicht vereinbart"
               }
             />
             <KV
@@ -186,7 +207,8 @@ export default async function AdminDetailPage({ params }: Props) {
                   <tr>
                     <th className="py-1">Firma</th>
                     <th className="py-1">Adresse</th>
-                    <th className="py-1 text-right">kWh</th>
+                    <th className="py-1">Versorger</th>
+                    <th className="py-1 text-right">kWh (Sp. 3/4/5)</th>
                     <th className="py-1 text-right">Belege</th>
                     <th className="py-1 text-right">OCR</th>
                   </tr>
@@ -199,8 +221,11 @@ export default async function AdminDetailPage({ params }: Props) {
                         {l.adresse}
                         {l.plz ? ` · ${l.plz}` : ""}
                       </td>
+                      <td className="py-1.5 text-muted-foreground">{l.versorger ?? "—"}</td>
                       <td className="py-1.5 text-right tabular-nums">
-                        {l.jahresKwh.toLocaleString("de-DE")}
+                        {[l.kwhEigenbetrieblich, l.kwhNutzenergiePG, l.kwhNutzenergieLuF]
+                          .map((k) => k.toLocaleString("de-DE"))
+                          .join(" / ")}
                       </td>
                       <td className="py-1.5 text-right">{l.belegFileKeys.length}</td>
                       <td className="py-1.5 text-right text-muted-foreground">
@@ -247,9 +272,9 @@ export default async function AdminDetailPage({ params }: Props) {
               }
             />
             <KV
-              label="Energielieferung an Dritte"
+              label="Nutzenergie an Dritte"
               value={
-                app.triageEnergieAnDritte ? (
+                app.nutzenergieAnDritteWeitergegeben ? (
                   <span className="font-semibold text-warning-foreground">
                     Ja — Formular 1456 erforderlich
                   </span>
@@ -262,10 +287,90 @@ export default async function AdminDetailPage({ params }: Props) {
         </div>
 
         <div className="space-y-4">
+          {/* Vollstaendigkeit */}
+          <Card>
+            <CardHeader
+              icon={app.fehlend.length === 0 ? CheckCircle2 : AlertTriangle}
+              title={
+                app.fehlend.length === 0
+                  ? "Vollständig — bereit zur Einreichung"
+                  : `Fehlt noch (${app.fehlend.length})`
+              }
+            />
+            {app.fehlend.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Alle Angaben für das Zoll-Portal liegen vor.
+              </p>
+            ) : (
+              <ul className="space-y-1.5 text-sm">
+                {app.fehlend.map((f) => (
+                  <li key={f.feld} className="flex items-start justify-between gap-3">
+                    <span>{f.label}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {f.quelle}
+                      {f.formularAbschnitt ? ` · Abschn. ${f.formularAbschnitt}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          {/* Portal-Vollmacht */}
+          <Card>
+            <CardHeader icon={KeyRound} title="Vollmacht im Zoll-Portal" />
+            <form action={adminSetPortalVollmachtAction} className="space-y-2 text-sm">
+              <input type="hidden" name="id" value={app.id} />
+              <label className="block">
+                <span className="mb-1 block text-xs text-muted-foreground">Status</span>
+                <select
+                  name="vollmachtStatus"
+                  defaultValue={vollmacht}
+                  className="block h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="OFFEN">offen</option>
+                  <option value="ERTEILT">erteilt</option>
+                  <option value="CODE_EINGELOEST">Zugangscode eingelöst</option>
+                  <option value="AKTIV">aktiv, Umfang geprüft</option>
+                  <option value="SCOPE_FALSCH">falsche Dienstleistung gewählt</option>
+                  <option value="ABGELAUFEN">abgelaufen</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs text-muted-foreground">Beteiligten-Nummer</span>
+                <input
+                  name="beteiligtenNummer"
+                  defaultValue={m?.portalZugang?.beteiligtenNummer ?? ""}
+                  className="block h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={!m}
+                className="h-9 w-full rounded-md border border-input text-sm font-medium hover:bg-muted disabled:opacity-50"
+              >
+                Speichern
+              </button>
+              <p className="text-xs text-muted-foreground">
+                Dienstleistung muss „Sonstige steuerliche Anträge“ sein.
+              </p>
+            </form>
+          </Card>
+
           {/* Downloads */}
           <Card>
             <CardHeader icon={Download} title="Downloads" />
             <div className="space-y-2 text-sm">
+              <a
+                href={`/admin/${app.id}/datenblatt`}
+                className="flex items-center justify-between rounded-md border border-primary/40 bg-primary/5 px-3 py-2 font-medium transition-colors hover:bg-primary/10"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <FileSpreadsheet className="h-4 w-4 text-primary" />
+                  Datenblatt § 9b (Excel, aktueller Stand)
+                </span>
+                <Download className="h-3.5 w-3.5 text-muted-foreground" />
+              </a>
               {app.kanzleiPaketUrl ? (
                 <a
                   href={app.kanzleiPaketUrl}
@@ -284,23 +389,34 @@ export default async function AdminDetailPage({ params }: Props) {
                   Noch kein Kanzlei-Paket generiert.
                 </div>
               )}
-              {app.mandatPdfUrl ? (
-                <a
-                  href={app.mandatPdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-2 transition-colors hover:border-input hover:bg-muted"
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    Mandat-PDF (unterschrieben)
-                  </span>
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                </a>
-              ) : (
-                <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-                  Kein Mandat-PDF vorhanden.
-                </div>
+              {(
+                [
+                  [app.aufbereitungPdfUrl, "Aufbereitungsvertrag (unterschrieben)"],
+                  [app.kanzleimandatPdfUrl, "Kanzleimandat und Vollmacht (unterschrieben)"],
+                ] as const
+              ).map(([url, label]) =>
+                url ? (
+                  <a
+                    key={label}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between rounded-md border border-border px-3 py-2 transition-colors hover:border-input hover:bg-muted"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      {label}
+                    </span>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  </a>
+                ) : (
+                  <div
+                    key={label}
+                    className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground"
+                  >
+                    {label}: noch nicht vorhanden.
+                  </div>
+                ),
               )}
               <p className="text-xs text-muted-foreground">
                 Download-Links sind 1 Stunde gültig.
@@ -318,7 +434,8 @@ export default async function AdminDetailPage({ params }: Props) {
           <Card>
             <CardHeader title="Verlauf" />
             <KV label="Erstellt" value={formatDateTime(app.createdAt)} />
-            <KV label="Unterschrieben" value={formatDateTime(app.mandatSignedAt)} />
+            <KV label="Aufbereitungsvertrag" value={formatDateTime(app.aufbereitungSignedAt)} />
+            <KV label="Kanzleimandat" value={formatDateTime(app.kanzleimandatSignedAt)} />
             <KV
               label="An Kanzlei übergeben"
               value={formatDateTime(app.submittedAt)}

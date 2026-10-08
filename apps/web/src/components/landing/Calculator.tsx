@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  calculateErstattung,
-  ENTLASTUNGSSATZ_EUR_PRO_KWH,
-} from "@stromsteuer/api/calc";
+import { calculateErstattung, satzFuer } from "@stromsteuer/api/calc";
 import { preisFuer } from "@stromsteuer/api/calc/preise";
 import { Callout } from "@stromsteuer/ui/callout";
 import Link from "next/link";
@@ -40,7 +37,9 @@ function positionAusKwh(kwh: number): number {
   );
 }
 
-const SATZ_EUR_PRO_MWH = (ENTLASTUNGSSATZ_EUR_PRO_KWH * 1000).toLocaleString("de-DE", {
+/** Antragsfaehig ist nur das abgeschlossene Vorjahr. */
+const VERBRAUCHSJAHR = new Date().getFullYear() - 1;
+const SATZ_EUR_PRO_MWH = satzFuer(VERBRAUCHSJAHR).eurProMwh.toLocaleString("de-DE", {
   minimumFractionDigits: 2,
 });
 
@@ -50,7 +49,7 @@ export function Calculator() {
   const kwhId = useId();
   const brancheId = useId();
 
-  const calc = useMemo(() => calculateErstattung({ bruttoKwh: kwh }), [kwh]);
+  const calc = useMemo(() => calculateErstattung({ verbrauchsjahr: VERBRAUCHSJAHR, bruttoKwh: kwh }), [kwh]);
   const erstattung = erstattungNachSelbstbehalt(calc);
   const preis = useMemo(() => preisFuer(calc.nettoKwh / 1000), [calc.nettoKwh]);
 

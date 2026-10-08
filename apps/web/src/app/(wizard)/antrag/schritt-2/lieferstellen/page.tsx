@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { weiterZuErklaerungenAction } from "@/app/antrag/schritt-2/actions";
+import { MINDEST_KWH_WIRTSCHAFTLICH } from "@/config/antrag";
 import { type LieferstelleData } from "@/components/wizard/LieferstelleCard";
 import { LieferstellenList } from "@/components/wizard/LieferstellenList";
 import { MassenUpload } from "@/components/wizard/MassenUpload";
@@ -37,7 +38,7 @@ export default async function LieferstellenPage({ searchParams }: PageProps) {
     initial = [created as LieferstelleData];
   }
 
-  const summe = initial.reduce((acc, l) => acc + l.jahresKwh, 0);
+  const summe = initial.reduce((acc, l) => acc + l.kwhEigenbetrieblich, 0);
   const antragsjahr =
     application.antragsjahr ?? new Date().getFullYear() - 1;
 
@@ -102,7 +103,7 @@ export default async function LieferstellenPage({ searchParams }: PageProps) {
               type="submit"
               size="lg"
               className="bg-primary text-white hover:bg-primary/90"
-              disabled={summe < 40_000}
+              disabled={summe < MINDEST_KWH_WIRTSCHAFTLICH}
             >
               Weiter zu Erklärungen
               <ArrowRight className="ml-1 h-4 w-4" />

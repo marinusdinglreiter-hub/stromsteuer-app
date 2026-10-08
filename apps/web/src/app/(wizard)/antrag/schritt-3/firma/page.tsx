@@ -27,21 +27,29 @@ export default async function FirmaPage() {
   }
 
   // Firmenname vorbefuellen aus Lieferstelle 1, falls noch leer.
+  const m = application.mandant;
   const fallbackFirmenname =
-    application.firmenname ??
-    application.lieferstellen[0]?.firmenname ??
-    "";
+    m?.firmenname ?? application.lieferstellen[0]?.firmenname ?? "";
 
   const initial: FirmaInitial = {
     firmenname: fallbackFirmenname,
-    rechtsform: application.rechtsform ?? "GmbH",
-    geschaeftsfuehrer: application.geschaeftsfuehrer ?? "",
-    vorname: application.vorname ?? "",
-    nachname: application.nachname ?? "",
-    telefon: application.telefon ?? "",
-    strasse: application.strasse ?? "",
-    plz: application.plz ?? "",
-    ort: application.ort ?? "",
+    rechtsform: m?.rechtsform ?? "GmbH",
+    geschaeftsfuehrer: m?.geschaeftsfuehrer ?? "",
+    vorname: m?.vorname ?? "",
+    nachname: m?.nachname ?? "",
+    telefon: m?.telefon ?? "",
+    strasse: m?.strasse ?? "",
+    plz: m?.plz ?? "",
+    ort: m?.ort ?? "",
+    unternehmensart: m?.unternehmensart ?? "",
+    steuernummer: m?.steuernummer ?? "",
+    ustIdNr: m?.ustIdNr ?? "",
+    handelsregister: m?.handelsregister ?? "",
+    wzCode: m?.wzCode ?? "",
+    hauptzollamt: m?.hauptzollamt ?? "",
+    kontoinhaber: m?.kontoinhaber ?? fallbackFirmenname,
+    iban: m?.iban ?? "",
+    bic: m?.bic ?? "",
   };
 
   return (

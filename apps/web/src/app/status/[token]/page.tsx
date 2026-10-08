@@ -21,8 +21,9 @@ type Props = {
 };
 
 export default async function StatusPage({ params }: Props) {
-  const application = await prisma.application.findUnique({
+  const application = await prisma.antrag.findUnique({
     where: { sessionToken: params.token },
+    include: { mandant: { select: { firmenname: true, email: true } } },
   });
   if (!application) {
     notFound();
@@ -30,7 +31,7 @@ export default async function StatusPage({ params }: Props) {
 
   const steps = deriveTimeline({
     status: application.status,
-    signedAt: application.mandatSignedAt,
+    signedAt: application.kanzleimandatSignedAt,
     submittedAt: application.submittedAt,
     hzaDecisionAt: application.hzaDecisionAt,
     payoutAt: application.payoutAt,
@@ -71,7 +72,7 @@ export default async function StatusPage({ params }: Props) {
                   Antrag auf Entlastung nach § 9b StromStG
                 </p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-                  {application.firmenname ?? "Ihr Antrag"}
+                  {application.mandant?.firmenname ?? "Ihr Antrag"}
                 </h1>
                 {application.antragsjahr ? (
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -112,12 +113,12 @@ export default async function StatusPage({ params }: Props) {
               </Callout>
             ) : null}
 
-            {application.email ? (
+            {application.mandant?.email ? (
               <p className="mt-6 flex items-start gap-2 text-sm text-muted-foreground">
                 <Mail className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                 <span>
                   Über jeden neuen Schritt informieren wir Sie an{" "}
-                  <span className="font-medium text-ink">{application.email}</span>.
+                  <span className="font-medium text-ink">{application.mandant.email}</span>.
                 </span>
               </p>
             ) : null}

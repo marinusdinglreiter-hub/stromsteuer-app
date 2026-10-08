@@ -30,7 +30,8 @@ export type LieferstelleData = {
   firmenname: string;
   adresse: string;
   plz: string | null;
-  jahresKwh: number;
+  /** Formular 1453 Spalte 3 — im Wizard als Jahresverbrauch erfasst */
+  kwhEigenbetrieblich: number;
   belegFileKeys: string[];
   ocrConfidence: number | null;
 };
@@ -42,7 +43,7 @@ type Props = {
 
 export function LieferstelleCard({ index, lieferstelle }: Props) {
   const [open, setOpen] = useState(
-    lieferstelle.firmenname === "" || lieferstelle.jahresKwh === 0,
+    lieferstelle.firmenname === "" || lieferstelle.kwhEigenbetrieblich === 0,
   );
   const [state, formAction] = useFormState<SaveResult | null, FormData>(
     saveLieferstelleAction,
@@ -60,7 +61,8 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
     firmenname: lieferstelle.firmenname,
     adresse: lieferstelle.adresse,
     plz: lieferstelle.plz ?? "",
-    jahresKwh: lieferstelle.jahresKwh > 0 ? String(lieferstelle.jahresKwh) : "",
+    jahresKwh:
+      lieferstelle.kwhEigenbetrieblich > 0 ? String(lieferstelle.kwhEigenbetrieblich) : "",
   });
 
   const [isDragging, setIsDragging] = useState(false);
@@ -179,7 +181,7 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <Zap className="h-3 w-3" />
-                  {formatKwh(lieferstelle.jahresKwh)}
+                  {formatKwh(lieferstelle.kwhEigenbetrieblich)}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <FileText className="h-3 w-3" />

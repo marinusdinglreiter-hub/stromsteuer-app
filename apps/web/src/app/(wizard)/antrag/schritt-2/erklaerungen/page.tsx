@@ -39,6 +39,9 @@ export default async function ErklaerungenPage({ searchParams }: Props) {
     eAutoLaden: application.triageEAutoLaden,
     eAutoKwh: application.triageEAutoKwh,
     energieAnDritte: application.triageEnergieAnDritte,
+    stromAnDritte: application.stromAnDritteGeleistet,
+    entnahmeDurchDritten: application.entnahmeDurchDritten,
+    beihilfeSelbsterklaerung: application.beihilfeSelbsterklaerungVorhanden,
   };
 
   const errorMessage = searchParams?.error;

@@ -127,22 +127,22 @@ export default async function EingangPage({ searchParams }: PageProps) {
                         href={`/admin/${a.id}`}
                         className="font-medium text-ink after:absolute after:inset-0 focus-visible:ring-0"
                       >
-                        {a.firmenname ?? "Ohne Firmenname"}
+                        {a.mandant?.firmenname ?? "Ohne Firmenname"}
                       </Link>
-                      <div className="text-xs text-muted-foreground">{a.email ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">{a.mandant?.email ?? "—"}</div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{a.antragsjahr ?? "—"}</td>
                     <td className="px-4 py-3 text-right font-medium text-ink">
                       {erstattung !== null ? formatEur(erstattung) : "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(a.submittedAt ?? a.mandatSignedAt)}
+                      {formatDate(a.submittedAt ?? a.kanzleimandatSignedAt)}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={meta.badge}>{meta.label}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      {a.triageEnergieAnDritte ? (
+                      {a.nutzenergieAnDritteWeitergegeben ? (
                         <Badge variant="warning">Nutzenergie an Dritte</Badge>
                       ) : (
                         <span className="text-muted-foreground">—</span>

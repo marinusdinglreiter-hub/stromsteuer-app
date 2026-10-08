@@ -1,7 +1,9 @@
 "use server";
 
 import {
+  istWirtschaftlich,
   isOcrAvailable,
+  MINDEST_KWH_WIRTSCHAFTLICH,
   isPdfFile,
   ocrPdfLokal,
   ocrStromrechnung,
@@ -58,7 +60,7 @@ export async function saveLieferstelleAction(
         parsed.data.plz && parsed.data.plz.length > 0
           ? parsed.data.plz
           : undefined,
-      jahresKwh: parsed.data.jahresKwh,
+      kwhEigenbetrieblich: parsed.data.jahresKwh,
     });
   } catch (err) {
     return {
@@ -116,6 +118,27 @@ function serializeParsed(parsed: ParsedBeleg): SerializedParsedBeleg {
     ...parsed,
     periodStart: parsed.periodStart?.toISOString() ?? null,
     periodEnd: parsed.periodEnd?.toISOString() ?? null,
+  };
+}
+
+/**
+ * Was die Rechnung ausser der Menge noch hergibt. Landet an der Lieferstelle
+ * und im Pruefprotokoll des Datenblatts. Nur gesetzte Werte, damit eine
+ * spaetere, schlechtere Erkennung nichts ueberschreibt.
+ */
+function ocrFelder(parsed: ParsedBeleg): {
+  versorger?: string;
+  zeitraumVon?: Date;
+  zeitraumBis?: Date;
+  stromsteuerGezahltEur?: number;
+} {
+  return {
+    ...(parsed.versorger ? { versorger: parsed.versorger } : {}),
+    ...(parsed.periodStart ? { zeitraumVon: parsed.periodStart } : {}),
+    ...(parsed.periodEnd ? { zeitraumBis: parsed.periodEnd } : {}),
+    ...(parsed.stromsteuerGezahlt != null
+      ? { stromsteuerGezahltEur: parsed.stromsteuerGezahlt }
+      : {}),
   };
 }
 
@@ -237,10 +260,11 @@ export async function uploadAndOcrAction(
         current.adresse || parsed.adresse
           ? current.adresse || parsed.adresse || undefined
           : undefined,
-      jahresKwh:
-        current.jahresKwh === 0 && parsed.jahresKwh != null
+      kwhEigenbetrieblich:
+        current.kwhEigenbetrieblich === 0 && parsed.jahresKwh != null
           ? parsed.jahresKwh
           : undefined,
+      ...ocrFelder(parsed),
       belegFileKeys: [...current.belegFileKeys, storageKey],
       ocrConfidence: parsed.confidence,
     });
@@ -259,7 +283,8 @@ export async function uploadAndOcrAction(
   const created = await caller.lieferstelle.create({
     firmenname: parsed.versorger ?? "",
     adresse: parsed.adresse ?? "",
-    jahresKwh: parsed.jahresKwh ?? 0,
+    kwhEigenbetrieblich: parsed.jahresKwh ?? 0,
+    ...ocrFelder(parsed),
     belegFileKeys: [storageKey],
     ocrConfidence: parsed.confidence,
   });
@@ -281,10 +306,15 @@ export async function weiterZuErklaerungenAction(): Promise<void> {
   if (list.length === 0) {
     redirect(`${SCHRITT2_PATH}?error=Bitte%20mindestens%20eine%20Lieferstelle%20erfassen.`);
   }
-  const summe = list.reduce((acc, l) => acc + l.jahresKwh, 0);
-  if (summe < 40_000) {
+  const summe = list.reduce(
+    (acc, l) => acc + l.kwhEigenbetrieblich + l.kwhNutzenergiePG + l.kwhNutzenergieLuF,
+    0,
+  );
+  if (!istWirtschaftlich(summe)) {
     redirect(
-      `${SCHRITT2_PATH}?error=Summe%20der%20Lieferstellen%20unter%2040.000%20kWh%20-%20Antrag%20wirtschaftlich%20nicht%20sinnvoll.`,
+      `${SCHRITT2_PATH}?error=${encodeURIComponent(
+        `Summe der Lieferstellen unter ${MINDEST_KWH_WIRTSCHAFTLICH.toLocaleString("de-DE")} kWh – dafür bieten wir keinen Festpreis an.`,
+      )}`,
     );
   }
   redirect("/antrag/schritt-2/erklaerungen");

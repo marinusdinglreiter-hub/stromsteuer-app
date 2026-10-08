@@ -19,6 +19,9 @@ const triageSchema = z.object({
     .union([z.coerce.number().int().min(0).max(50_000_000), z.literal("")])
     .optional(),
   energieAnDritte: z.coerce.boolean(),
+  stromAnDritte: z.coerce.boolean(),
+  entnahmeDurchDritten: z.coerce.boolean(),
+  beihilfeSelbsterklaerung: z.coerce.boolean(),
 });
 
 export type TriageResult =
@@ -46,15 +49,18 @@ export async function saveTriageAction(
     eAutoLaden: readBoolean(formData.get("eAutoLaden")),
     eAutoKwh: formData.get("eAutoKwh"),
     energieAnDritte: readBoolean(formData.get("energieAnDritte")),
+    stromAnDritte: readBoolean(formData.get("stromAnDritte")),
+    entnahmeDurchDritten: readBoolean(formData.get("entnahmeDurchDritten")),
+    beihilfeSelbsterklaerung: readBoolean(formData.get("beihilfeSelbsterklaerung")),
   };
 
-  // Alle 6 Booleans muessen beantwortet sein.
+  // Alle Ja/Nein-Fragen muessen beantwortet sein.
   for (const [key, val] of Object.entries(data)) {
     if (key.includes("Kwh")) continue;
     if (val === undefined) {
       return {
         ok: false,
-        error: "Bitte alle 6 Erklärungen mit Ja oder Nein beantworten.",
+        error: "Bitte alle Erklärungen mit Ja oder Nein beantworten.",
       };
     }
   }
@@ -90,6 +96,9 @@ export async function saveTriageAction(
       eAutoLaden: parsed.data.eAutoLaden,
       eAutoKwh: parsed.data.eAutoLaden ? eAutoKwh : undefined,
       energieAnDritte: parsed.data.energieAnDritte,
+      stromAnDritte: parsed.data.stromAnDritte,
+      entnahmeDurchDritten: parsed.data.entnahmeDurchDritten,
+      beihilfeSelbsterklaerung: parsed.data.beihilfeSelbsterklaerung,
     });
   } catch (err) {
     return {
