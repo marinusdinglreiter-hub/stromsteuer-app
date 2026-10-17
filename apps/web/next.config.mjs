@@ -55,6 +55,11 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // pdf-parse bringt pdf.js samt Worker mit; gebuendelt findet es den
+    // Worker zur Laufzeit nicht. Deshalb zur Laufzeit per require laden.
+    serverComponentsExternalPackages: ["pdf-parse"],
+  },
   transpilePackages: [
     "@stromsteuer/antrag",
     "@stromsteuer/api",
