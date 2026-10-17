@@ -54,7 +54,7 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
     loading: boolean;
     error: string | null;
     ocrInfo: string | null;
-    erkannt: { jahresKwh: number; stromsteuerGezahlt: number | null } | null;
+    erkannt: ErkannteWerte | null;
   }>({ loading: false, error: null, ocrInfo: null, erkannt: null });
 
   const [fields, setFields] = useState({
@@ -117,14 +117,15 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
       }
       const p = result.parsed;
       const confidence = Math.round(p.confidence * 100);
-      if (p.confidence > 0) {
-        setFields((prev) => ({
-          firmenname: p.versorger || prev.firmenname,
-          adresse: p.adresse || prev.adresse,
-          plz: prev.plz,
-          jahresKwh: p.jahresKwh != null ? String(p.jahresKwh) : prev.jahresKwh,
-        }));
-      }
+      // Die Menge kommt vom Server: bei mehreren Rechnungen die Summe, bei
+      // von Hand geaenderter Menge der bisherige Wert.
+      setFields((prev) => ({
+        firmenname: prev.firmenname || p.versorger || "",
+        adresse: prev.adresse || p.adresse || "",
+        plz: prev.plz,
+        jahresKwh:
+          result.kwhEigenbetrieblich > 0 ? String(result.kwhEigenbetrieblich) : prev.jahresKwh,
+      }));
 
       // Klare Rueckmeldung statt stillem Leerlauf, je nachdem ob/wie extrahiert
       // wurde (siehe ExtractionStatus in actions.ts).
@@ -136,9 +137,19 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
             : "Konnte aus dieser Datei keine Werte lesen (evtl. gescanntes Bild-PDF) — bitte Werte manuell eintragen.";
 
       const kwh = p.jahresKwh ?? 0;
-      const erkannt =
+      const erkannt: ErkannteWerte | null =
         kwh > 0
-          ? { jahresKwh: kwh, stromsteuerGezahlt: p.stromsteuerGezahlt ?? null }
+          ? {
+              kwh,
+              stromsteuerGezahlt: p.stromsteuerGezahlt ?? null,
+              zeitraum:
+                p.periodStart && p.periodEnd
+                  ? `${datum(p.periodStart)} – ${datum(p.periodEnd)}`
+                  : null,
+              anzahlBelege: result.anzahlBelege,
+              belegSummeKwh: result.belegSummeKwh,
+              mengeUebernommen: result.mengeUebernommen,
+            }
           : null;
 
       setUploadState({ loading: false, error: null, ocrInfo, erkannt });
@@ -303,10 +314,11 @@ export function LieferstelleCard({ index, lieferstelle }: Props) {
             onDrop={handleDrop}
           >
             <div className="text-xs font-medium text-foreground">
-              Rechnung dieser Lieferstelle hochladen
+              Rechnungen dieser Lieferstelle hochladen
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              PDF, JPG, PNG · Drag &amp; Drop oder Datei auswählen
+              PDF, JPG, PNG · bei Monatsrechnungen alle Monate · Mengen werden
+              addiert
             </p>
 
             <input
@@ -425,6 +437,10 @@ function SaveButton() {
   );
 }
 
+function datum(iso: string): string {
+  return new Date(iso).toLocaleDateString("de-DE", { timeZone: "UTC" });
+}
+
 function fmt(eur: number): string {
   return eur.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 }
@@ -436,23 +452,39 @@ function fmt(eur: number): string {
  * korrekte Betrag wird erst in den spaeteren Schritten ueber calculateErstattung
  * berechnet — so sieht der Nutzer nie einen abweichenden Betrag.
  */
-function ErkannteWerteKarte({
-  jahresKwh,
-  stromsteuerGezahlt,
-}: {
-  jahresKwh: number;
+type ErkannteWerte = {
+  kwh: number;
   stromsteuerGezahlt: number | null;
-}) {
+  zeitraum: string | null;
+  anzahlBelege: number;
+  belegSummeKwh: number | null;
+  mengeUebernommen: boolean;
+};
+
+function ErkannteWerteKarte({
+  kwh,
+  stromsteuerGezahlt,
+  zeitraum,
+  anzahlBelege,
+  belegSummeKwh,
+  mengeUebernommen,
+}: ErkannteWerte) {
   return (
     <div className="mt-3 rounded-lg border border-primary/25 bg-secondary p-3 text-xs">
       <div className="mb-2 font-semibold text-ink">
         Aus der Rechnung erkannt
       </div>
       <div className="space-y-1 text-foreground">
+        {zeitraum ? (
+          <div className="flex justify-between">
+            <span>Zeitraum</span>
+            <span className="font-medium tabular-nums">{zeitraum}</span>
+          </div>
+        ) : null}
         <div className="flex justify-between">
-          <span>Jahresverbrauch</span>
+          <span>Verbrauch</span>
           <span className="font-medium tabular-nums">
-            {jahresKwh.toLocaleString("de-DE")} kWh
+            {kwh.toLocaleString("de-DE")} kWh
           </span>
         </div>
         {stromsteuerGezahlt !== null ? (
@@ -463,7 +495,21 @@ function ErkannteWerteKarte({
             </span>
           </div>
         ) : null}
+        {anzahlBelege > 1 && belegSummeKwh !== null ? (
+          <div className="flex justify-between border-t border-primary/15 pt-1">
+            <span>Summe aus {anzahlBelege} Rechnungen</span>
+            <span className="font-semibold tabular-nums">
+              {belegSummeKwh.toLocaleString("de-DE")} kWh
+            </span>
+          </div>
+        ) : null}
       </div>
+      {!mengeUebernommen ? (
+        <p className="mt-2 text-warning-foreground">
+          Sie hatten den Verbrauch von Hand geändert. Ihr Wert bleibt stehen,
+          bitte mit den Rechnungen abgleichen.
+        </p>
+      ) : null}
       <p className="mt-2 text-muted-foreground">
         Bitte Werte prüfen und speichern · Ihre Erstattung berechnen wir aus der
         Summe aller Lieferstellen.

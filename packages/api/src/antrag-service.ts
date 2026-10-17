@@ -25,7 +25,12 @@ export async function ladeAntrag(id: string): Promise<AntragMitRelationen> {
 }
 
 /** Summe der drei Mengenspalten aller Lieferstellen. */
-export function summeKwh(lieferstellen: AntragMitRelationen["lieferstellen"]): number {
+export function summeKwh(
+  lieferstellen: Pick<
+    AntragMitRelationen["lieferstellen"][number],
+    "kwhEigenbetrieblich" | "kwhNutzenergiePG" | "kwhNutzenergieLuF"
+  >[],
+): number {
   return lieferstellen.reduce(
     (s, l) => s + l.kwhEigenbetrieblich + l.kwhNutzenergiePG + l.kwhNutzenergieLuF,
     0,

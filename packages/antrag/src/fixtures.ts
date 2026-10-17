@@ -4,6 +4,7 @@
  */
 
 import type {
+  Beleg,
   Lieferstelle,
   Mandant,
   NutzenergieEmpfaenger,
@@ -16,7 +17,31 @@ const T0 = new Date("2026-03-01T10:00:00Z");
 
 type Decimalish = AntragMitRelationen["bruttoErstattung"];
 
-export function lieferstelle(over: Partial<Lieferstelle> = {}): Lieferstelle {
+export function beleg(over: Partial<Beleg> = {}): Beleg {
+  return {
+    id: "b1",
+    lieferstelleId: "ls1",
+    antragId: "a1",
+    storageKey: "a1/rechnung.pdf",
+    dateiname: "rechnung.pdf",
+    sha256: "abc",
+    kwh: 800_000,
+    zeitraumVon: new Date("2025-01-01T00:00:00Z"),
+    zeitraumBis: new Date("2025-12-31T00:00:00Z"),
+    stromsteuerEur: 16_400 as unknown as Beleg["stromsteuerEur"],
+    versorger: "Stadtwerke",
+    adresse: "Industriestr. 1, Regensburg",
+    zaehlpunkt: "51238696781",
+    ocrConfidence: 0.83,
+    extraktion: "pdf-lokal",
+    createdAt: T0,
+    ...over,
+  };
+}
+
+export function lieferstelle(
+  over: Partial<Lieferstelle & { belege: Beleg[] }> = {},
+): Lieferstelle & { belege: Beleg[] } {
   return {
     id: "ls1",
     antragId: "a1",
@@ -33,6 +58,7 @@ export function lieferstelle(over: Partial<Lieferstelle> = {}): Lieferstelle {
     stromsteuerGezahltEur: null,
     belegFileKeys: ["a1/rechnung.pdf"],
     ocrConfidence: 0.83,
+    belege: [beleg()],
     createdAt: T0,
     updatedAt: T0,
     ...over,

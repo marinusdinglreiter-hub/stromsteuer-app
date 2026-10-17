@@ -8,8 +8,10 @@ import { FormAlert } from "@/components/ui/FormAlert";
 
 /**
  * Massen-Upload: Akzeptiert mehrere Belege auf einmal, ruft pro Datei
- * `uploadAndOcrAction` ohne lieferstelleId — der Server legt fuer jeden
- * Beleg eine neue Lieferstelle an, vorausgefuellt aus dem OCR-Resultat.
+ * `uploadAndOcrAction` ohne lieferstelleId. Der Server ordnet jede Rechnung
+ * ueber Zaehlpunkt oder Adresse einer bestehenden Lieferstelle zu und legt
+ * nur fuer unbekannte Stellen eine neue an — zwoelf Monatsrechnungen ergeben
+ * so eine Lieferstelle mit der Jahressumme.
  */
 export function MassenUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -18,13 +20,14 @@ export function MassenUpload() {
     progress: { done: number; total: number };
     errors: string[];
     info: string | null;
-    ocrAvailable: boolean;
+    /** false = mindestens eine Rechnung konnte nicht automatisch gelesen werden */
+    alleGelesen: boolean;
   }>({
     loading: false,
     progress: { done: 0, total: 0 },
     errors: [],
     info: null,
-    ocrAvailable: true,
+    alleGelesen: true,
   });
 
   async function handleFiles(files: FileList | null) {
@@ -35,11 +38,12 @@ export function MassenUpload() {
       progress: { done: 0, total: list.length },
       errors: [],
       info: null,
-      ocrAvailable: true,
+      alleGelesen: true,
     });
 
-    let ocrAvailable = true;
+    let ungelesen = 0;
     const fileErrors: string[] = [];
+    const lieferstellen = new Set<string>();
 
     for (let i = 0; i < list.length; i++) {
       const file = list[i]!;
@@ -49,8 +53,9 @@ export function MassenUpload() {
         const result = await uploadAndOcrAction(formData);
         if (!result.ok) {
           fileErrors.push(`${file.name}: ${result.error}`);
-        } else if (!result.ocrAvailable) {
-          ocrAvailable = false;
+        } else {
+          lieferstellen.add(result.lieferstelleId);
+          if (result.extractionStatus !== "ok") ungelesen++;
         }
       } catch (err) {
         fileErrors.push(
@@ -68,13 +73,13 @@ export function MassenUpload() {
       loading: false,
       progress: { done: list.length, total: list.length },
       errors: fileErrors,
-      ocrAvailable,
+      alleGelesen: ungelesen === 0,
       info:
         erfolge === 0
           ? null
-          : ocrAvailable
-            ? `${erfolge} Datei(en) verarbeitet. Lieferstellen werden unten angezeigt.`
-            : "Upload erfolgreich. OCR ist nicht konfiguriert — Werte manuell ergänzen.",
+          : ungelesen === 0
+            ? `${erfolge} Rechnung(en) gelesen, ${lieferstellen.size} Lieferstelle(n) zugeordnet. Bitte unten prüfen.`
+            : `${erfolge} Rechnung(en) hochgeladen, ${ungelesen} davon nicht automatisch lesbar (Scan oder Foto). Bitte die Werte unten von Hand ergänzen.`,
     });
   }
 
@@ -118,7 +123,7 @@ export function MassenUpload() {
       ) : null}
       {state.info ? (
         <FormAlert
-          variant={state.ocrAvailable ? "success" : "warning"}
+          variant={state.alleGelesen ? "success" : "warning"}
           className="mt-3"
         >
           {state.info}

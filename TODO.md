@@ -83,19 +83,16 @@ Akzeptanz: alles grün. Wenn nicht, hier stoppen und melden, nichts weiterbauen.
 
 ### 0.3 Migrations anwenden
 
-> **Blockiert (08.10.2026):** Die Supabase-Datenbank ist nicht erreichbar
-> (`tenant/user … not found`, Projekt vermutlich pausiert). Im Supabase-Dashboard fortsetzen, dann `0_init` bis
-> `3_mandant_bankverbindung_mengen` deployen.
+> **Erledigt 17.10.2026.** Supabase war wieder erreichbar, `0_init` bis
+> `4_beleg` sind angewendet (`prisma migrate status`: Schema aktuell).
+> Ende-zu-Ende lokal getestet: drei Monatsrechnungen hochladen, Erklärungen,
+> Firmendaten, beide Verträge signieren, Datenblatt und Kanzlei-Paket im
+> Backoffice. Mails wurden dabei nicht versendet (`RESEND_API_KEY` leer).
 
-- [ ] `pnpm --filter @stromsteuer/db exec prisma migrate deploy`
-- [ ] Falls die Tabellen per `db push` schon existieren, schlägt das fehl. Dann:
-      `pnpm --filter @stromsteuer/db exec prisma migrate resolve --applied 0_init`
-      und die DDL aus `prisma/migrations/1_audit_immutable/migration.sql` sowie
-      `2_signature_integrity/migration.sql` einmalig manuell in der
-      Supabase-SQL-Konsole ausführen.
+- [x] `pnpm --filter @stromsteuer/db exec prisma migrate deploy`
+- [x] Buckets `belege` und `generated` vorhanden und privat.
 
-Akzeptanz: `prisma migrate status` meldet keine ausstehenden Migrations, und die
-Tabelle `AuditEvent` existiert mit dem UPDATE/DELETE-Trigger.
+Akzeptanz: `prisma migrate status` meldet keine ausstehenden Migrations.
 
 ### 0.4 Überholte Vorgaben entfernen
 

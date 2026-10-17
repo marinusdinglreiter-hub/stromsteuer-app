@@ -1,4 +1,5 @@
-import { antrag, lieferstelle, mandant } from "@stromsteuer/antrag/fixtures";
+import { antrag, beleg, lieferstelle, mandant } from "@stromsteuer/antrag/fixtures";
+import type { Beleg } from "@stromsteuer/db";
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 
@@ -45,6 +46,7 @@ describe("generateDatenblatt", () => {
     expect(wb.worksheets.map((w) => w.name)).toEqual([
       "Antragsdatensatz",
       "Lieferstellen",
+      "Belege",
       "Fehlend",
     ]);
 
@@ -77,11 +79,36 @@ describe("generateDatenblatt", () => {
 
   it("kennzeichnet unsichere OCR-Werte im Pruefprotokoll", async () => {
     const res = await generateDatenblatt(
-      antrag({ lieferstellen: [lieferstelle({ ocrConfidence: 0.5 })] }),
+      antrag({ lieferstellen: [lieferstelle({ belege: [beleg({ ocrConfidence: 0.5 })] })] }),
       { brandName: "Test" },
     );
     const ls = (await lade(res.bytes)).getWorksheet("Lieferstellen")!;
-    expect(ls.getRow(2).getCell(12).value).toBe("OCR unsicher, Beleg ansehen");
-    expect(ls.getRow(2).getCell(6).value).toBe(800_000);
+    expect(ls.getRow(2).getCell(13).value).toBe(
+      "• rechnung.pdf: Erkennung unsicher (50 %), Werte mit dem Beleg abgleichen.",
+    );
+    expect(ls.getRow(2).getCell(7).value).toBe(800_000);
+  });
+
+  it("vollstaendige Jahresrechnung: Pruefprotokoll ok, Beleg mit Satz je MWh", async () => {
+    const res = await generateDatenblatt(antrag(), { brandName: "Test" });
+    const wb = await lade(res.bytes);
+    expect(wb.getWorksheet("Lieferstellen")!.getRow(2).getCell(13).value).toBe("ok");
+    const bw = wb.getWorksheet("Belege")!;
+    expect(bw.getRow(2).getCell(2).value).toBe("rechnung.pdf");
+    expect(bw.getRow(2).getCell(6).value).toBe(20.5);
+    expect(bw.getRow(2).getCell(8).value).toBe("51238696781");
+  });
+
+  it("warnt, wenn die Stromsteuer nicht zur Menge passt", async () => {
+    const res = await generateDatenblatt(
+      antrag({
+        lieferstellen: [
+          lieferstelle({ belege: [beleg({ stromsteuerEur: 20.5 as unknown as Beleg["stromsteuerEur"] })] }),
+        ],
+      }),
+      { brandName: "Test" },
+    );
+    const z = res.datensatz.lieferstellen[0]!;
+    expect(z.hinweise[0]?.text).toContain("statt 20,50 €/MWh");
   });
 });
