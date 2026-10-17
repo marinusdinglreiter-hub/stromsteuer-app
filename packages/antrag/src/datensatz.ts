@@ -177,7 +177,7 @@ export function erzeugeDatensatz(
       : antrag.beschreibungTaetigkeitVorgelegt === "LIEGT_BEI"
         ? "wird mit diesem Antrag vorgelegt"
         : "",
-    "kunde",
+    "kanzlei",
     "antrag.beschreibungTaetigkeitVorgelegt",
   );
 
@@ -190,7 +190,8 @@ export function erzeugeDatensatz(
   f("4", "BIC", m?.bic, "kunde", "mandant.bic");
 
   // --- Abschnitt 5 bis 7 ---
-  f("5", "Schaetzung nach § 17b Abs. 5 StromStV", janein(antrag.schaetzungNach17b), "kunde", "antrag.schaetzungNach17b");
+  // Punkt 2 und 5 sind Ankreuzfelder, die der Wizard nicht abfragt; die Kanzlei klaert sie.
+  f("5", "Schaetzung nach § 17b Abs. 5 StromStV", janein(antrag.schaetzungNach17b), "kanzlei", "antrag.schaetzungNach17b");
   f("6", "Strom an Dritte geleistet", janein(antrag.stromAnDritteGeleistet), "kunde", "antrag.stromAnDritteGeleistet");
   f(
     "6",
