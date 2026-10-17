@@ -647,6 +647,9 @@ enum VollmachtStatus { OFFEN ERTEILT CODE_EINGELOEST AKTIV ABGELAUFEN SCOPE_FALS
 - [ ] Ein vollständiger Testfall End-to-End, von der Kanzlei geprüft, bevor ein
       echter Antrag eingereicht wird.
 
+> Abnahme-Checkliste für die Kanzlei und die Liste aller offenen Punkte mit Zuständigen:
+> `docs/80-abnahme-und-offene-punkte.md`.
+
 ## 4. Nicht selbst bauen
 
 - Rechnungsstellung über Lexoffice oder sevdesk anbinden, keine eigene
