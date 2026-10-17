@@ -179,6 +179,7 @@ export function antrag(over: Partial<AntragMitRelationen> = {}): AntragMitRelati
     kanzleimandatPdfKey: null,
     kanzleimandatPdfSha256: null,
     kanzleiPaketKey: null,
+    eingangsnummer: null,
     submittedAt: null,
     hzaDecisionAt: null,
     hzaAmount: null,

@@ -13,6 +13,7 @@ export async function adminUpdateStatusAction(
   id: string,
   nextStatus: "SUBMITTED" | "APPROVED" | "PAID" | "REJECTED",
   hzaAmount?: number,
+  eingangsnummer?: string,
 ): Promise<AdminActionResult> {
   try {
     const caller = await getAdminServerCaller();
@@ -20,6 +21,7 @@ export async function adminUpdateStatusAction(
       id,
       nextStatus,
       hzaAmount,
+      eingangsnummer,
       brandName: BRAND.name,
       brandShortName: BRAND.shortName,
     });
@@ -32,6 +34,25 @@ export async function adminUpdateStatusAction(
   }
   revalidatePath("/admin/eingang");
   revalidatePath(`/admin/${id}`);
+  return { ok: true };
+}
+
+/** Feld im Portal-Eingabeblatt abhaken oder wieder oeffnen. */
+export async function adminSetPortalFeldAction(
+  id: string,
+  feldKey: string,
+  erledigt: boolean,
+): Promise<AdminActionResult> {
+  try {
+    const caller = await getAdminServerCaller();
+    await caller.admin.setPortalFeld({ id, feldKey, erledigt });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Speichern fehlgeschlagen.",
+    };
+  }
+  revalidatePath(`/admin/${id}/portal`);
   return { ok: true };
 }
 

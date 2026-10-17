@@ -88,6 +88,7 @@ model Antrag {
   // Step 2a — Lieferstellen (in eigener Tabelle)
   lieferstellen         Lieferstelle[]
   nutzenergieEmpfaenger NutzenergieEmpfaenger[]
+  portalFelder          PortalFeld[]
 
   // Unveraenderliche Eingabe-/Aktions-Historie (Audit-Trail)
   auditEvents AuditEvent[]
@@ -131,6 +132,8 @@ model Antrag {
 
   // Uebergabe an Kanzlei
   kanzleiPaketKey String?
+  /// Eingangsnummer des Zoll-Portals nach der Einreichung durch die Kanzlei
+  eingangsnummer  String?
   submittedAt     DateTime?
   hzaDecisionAt   DateTime?
   hzaAmount       Decimal?  @db.Decimal(12, 2)
@@ -191,6 +194,19 @@ model Lieferstelle {
 /// Eine hochgeladene Rechnung mit den daraus gelesenen Werten. Die Felder an
 /// der Lieferstelle (Menge, Zeitraum, Stromsteuer) sind die Summe ueber ihre
 /// Belege, solange der Kunde die Menge nicht von Hand geaendert hat.
+/// Abgehakte Felder im Portal-Eingabeblatt der Kanzlei (/admin/<id>/portal).
+model PortalFeld {
+  id         String   @id @default(cuid())
+  antrag     Antrag   @relation(fields: [antragId], references: [id], onDelete: Cascade)
+  antragId   String
+  /// Stabiler Schluessel aus Formularabschnitt und Feldbezeichnung
+  feldKey    String
+  erledigtAt DateTime @default(now())
+  erledigtVon String?
+
+  @@unique([antragId, feldKey])
+}
+
 model Beleg {
   id             String       @id @default(cuid())
   lieferstelle   Lieferstelle @relation(fields: [lieferstelleId], references: [id], onDelete: Cascade)
@@ -321,4 +337,6 @@ enum AuditEventType {
   KANZLEIMANDAT_SIGNED
   DATENBLATT_ERZEUGT
   BELEG_ERFASST
+  PORTAL_FELD_ERLEDIGT
+  PORTAL_EINGEREICHT
 }

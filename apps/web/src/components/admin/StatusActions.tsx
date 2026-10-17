@@ -18,6 +18,8 @@ import { statusMeta } from "@/lib/status";
 type Props = {
   applicationId: string;
   currentStatus: string;
+  /** Bereits erfasste Eingangsnummer des Zoll-Portals */
+  eingangsnummer?: string | null;
 };
 
 type NextStatus = "SUBMITTED" | "APPROVED" | "PAID" | "REJECTED";
@@ -27,12 +29,15 @@ const ACTIONS: {
   label: string;
   icon: typeof FileCheck;
   needsAmount?: boolean;
+  /** Eingangsnummer aus dem Zoll-Portal ist Pflicht */
+  needsEingang?: boolean;
   destructive?: boolean;
 }[] = [
   {
     key: "SUBMITTED",
     label: "Beim HZA eingereicht",
     icon: FileCheck,
+    needsEingang: true,
   },
   {
     key: "APPROVED",
@@ -62,8 +67,9 @@ const NAECHSTER: Partial<Record<string, NextStatus>> = {
   APPROVED: "PAID",
 };
 
-export function StatusActions({ applicationId, currentStatus }: Props) {
+export function StatusActions({ applicationId, currentStatus, eingangsnummer }: Props) {
   const [pending, startTransition] = useTransition();
+  const [eingang, setEingang] = useState(eingangsnummer ?? "");
   const [error, setError] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<NextStatus | null>(null);
   const [amounts, setAmounts] = useState<Record<NextStatus, string>>({
@@ -89,12 +95,18 @@ export function StatusActions({ applicationId, currentStatus }: Props) {
       }
       hzaAmount = Math.round(num * 100) / 100;
     }
+    if (def.needsEingang && eingang.trim().length < 3) {
+      setError("Bitte die Eingangsnummer aus dem Zoll-Portal eintragen.");
+      setActiveAction(action);
+      return;
+    }
     setActiveAction(action);
     startTransition(async () => {
       const result = await adminUpdateStatusAction(
         applicationId,
         action,
         hzaAmount,
+        def.needsEingang ? eingang.trim() : undefined,
       );
       if (!result.ok) setError(result.error);
     });
@@ -112,6 +124,16 @@ export function StatusActions({ applicationId, currentStatus }: Props) {
       <div className="mt-4 space-y-3">
         {ACTIONS.map((a) => (
           <div key={a.key} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {a.needsEingang ? (
+              <Input
+                type="text"
+                aria-label="Eingangsnummer aus dem Zoll-Portal"
+                value={eingang}
+                onChange={(e) => setEingang(e.target.value)}
+                placeholder="Eingangsnummer Portal"
+                className="tnum h-9 sm:w-40"
+              />
+            ) : null}
             {a.needsAmount ? (
               <Input
                 type="text"

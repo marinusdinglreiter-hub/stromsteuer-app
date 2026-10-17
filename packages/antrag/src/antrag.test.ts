@@ -189,3 +189,33 @@ describe("vorpruefung", () => {
     });
   });
 });
+
+describe("erzeugeDatensatz — Schluessel und Herkunft der Mengen", () => {
+  const spalte3 = (a: ReturnType<typeof antrag>) =>
+    erzeugeDatensatz(a, BERECHNUNG_800K).felder.find((x) => x.label.startsWith("Spalte 3"))!;
+
+  it("jedes Feld hat einen eindeutigen, stabilen Schluessel", () => {
+    const keys = erzeugeDatensatz(antrag(), BERECHNUNG_800K).felder.map((x) => x.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys).toContain("4-iban");
+    expect(keys).toContain("seite-2-spalte-3-betriebliche-zwecke-mwh");
+  });
+
+  it("Menge aus lesbaren Belegen: Herkunft OCR mit schwaechster Konfidenz", () => {
+    const f = spalte3(antrag());
+    expect(f.herkunft).toBe("ocr");
+    expect(f.konfidenz).toBe(0.83);
+  });
+
+  it("von Hand geaenderte Menge: Herkunft Kunde, kein OCR-Hinweis", () => {
+    const a = antrag({ lieferstellen: [lieferstelle({ kwhEigenbetrieblich: 900_000 })] });
+    const f = spalte3(a);
+    expect(f.herkunft).toBe("kunde");
+    expect(f.konfidenz).toBeUndefined();
+  });
+
+  it("ohne Beleg: Herkunft Kunde", () => {
+    const a = antrag({ lieferstellen: [lieferstelle({ belege: [] })] });
+    expect(spalte3(a).herkunft).toBe("kunde");
+  });
+});

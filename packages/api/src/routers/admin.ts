@@ -7,6 +7,7 @@ import { berechneAntrag, ladeAntrag } from "../antrag-service";
 import { logAudit, tryLogAudit } from "../audit";
 import { STROMSTEUER_REGELSATZ_EUR_PRO_MWH } from "../calc/rates";
 import { sendMail } from "../email/client";
+import { datensatzFuer } from "../forms/datenblatt";
 import {
   renderStatusApproved,
   renderStatusPaid,
@@ -144,6 +145,94 @@ export const adminRouter = router({
     }),
 
   /**
+   * Portal-Eingabeblatt: alle Felder in der Reihenfolge von Formular 1453 mit
+   * Herkunft, OCR-Konfidenz und Abhak-Stand, dazu Links auf die Belege.
+   */
+  portalBlatt: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const antrag = await ladeAntrag(input.id);
+      const datensatz = datensatzFuer(antrag);
+      const erledigt = await prisma.portalFeld.findMany({ where: { antragId: input.id } });
+      const erledigtMap = new Map(erledigt.map((e) => [e.feldKey, e]));
+
+      const belege = await Promise.all(
+        antrag.lieferstellen.flatMap((l, i) =>
+          l.belege.map(async (b) => {
+            let url: string | null = null;
+            try {
+              url = await getBelegDownloadUrl(b.storageKey, 60 * 60);
+            } catch (err) {
+              console.warn("[admin.portalBlatt] beleg signed-url fehlgeschlagen:", err);
+            }
+            return {
+              id: b.id,
+              lieferstelleNr: i + 1,
+              dateiname: b.dateiname,
+              url,
+              istPdf: b.dateiname.toLowerCase().endsWith(".pdf"),
+            };
+          }),
+        ),
+      );
+
+      return {
+        antragId: antrag.id,
+        firmenname: antrag.mandant?.firmenname ?? null,
+        antragsjahr: antrag.antragsjahr,
+        status: antrag.status,
+        eingangsnummer: antrag.eingangsnummer,
+        vollmachtStatus: antrag.mandant?.portalZugang?.vollmachtStatus ?? "OFFEN",
+        felder: datensatz.felder.map((f) => ({
+          ...f,
+          erledigtAt: erledigtMap.get(f.key)?.erledigtAt ?? null,
+          erledigtVon: erledigtMap.get(f.key)?.erledigtVon ?? null,
+        })),
+        fehlend: pruefeVollstaendigkeit(antrag, "einreichung"),
+        belege,
+      };
+    }),
+
+  /** Ein Feld im Portal-Eingabeblatt abhaken oder wieder oeffnen. */
+  setPortalFeld: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        feldKey: z.string().min(1).max(80),
+        erledigt: z.boolean(),
+        von: z.string().max(120).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const antrag = await ladeAntrag(input.id);
+      const gueltig = datensatzFuer(antrag).felder.some((f) => f.key === input.feldKey);
+      if (!gueltig) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Unbekanntes Feld." });
+      }
+      await prisma.$transaction(async (tx) => {
+        if (input.erledigt) {
+          await tx.portalFeld.upsert({
+            where: { antragId_feldKey: { antragId: input.id, feldKey: input.feldKey } },
+            create: { antragId: input.id, feldKey: input.feldKey, erledigtVon: input.von ?? "Kanzlei" },
+            update: {},
+          });
+        } else {
+          await tx.portalFeld.deleteMany({ where: { antragId: input.id, feldKey: input.feldKey } });
+        }
+        await logAudit(
+          {
+            antragId: input.id,
+            type: "PORTAL_FELD_ERLEDIGT",
+            actor: "KANZLEI",
+            metadata: { feldKey: input.feldKey, erledigt: input.erledigt },
+          },
+          tx,
+        );
+      });
+      return { ok: true };
+    }),
+
+  /**
    * Portal-Zugang des Mandanten pflegen (Vollmacht im Zoll-Portal). Ohne
    * aktive Vollmacht kann die Kanzlei nicht einreichen.
    */
@@ -201,6 +290,8 @@ export const adminRouter = router({
         id: z.string().min(1),
         nextStatus: z.enum(["SUBMITTED", "APPROVED", "PAID", "REJECTED"]),
         hzaAmount: z.number().min(0).max(100_000_000).optional(),
+        /** Eingangsnummer des Zoll-Portals; Pflicht beim Wechsel auf SUBMITTED */
+        eingangsnummer: z.string().trim().min(3).max(60).optional(),
         brandName: z.string().min(1).max(200),
         brandShortName: z.string().min(1).max(80),
       }),
@@ -216,12 +307,20 @@ export const adminRouter = router({
         });
       }
 
+      if (input.nextStatus === "SUBMITTED" && !input.eingangsnummer && !app.eingangsnummer) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bitte die Eingangsnummer aus dem Zoll-Portal eintragen.",
+        });
+      }
+
       const now = new Date();
       const data: Record<string, unknown> = {
         status: input.nextStatus,
       };
       if (input.nextStatus === "SUBMITTED") {
         data.submittedAt = app.submittedAt ?? now;
+        if (input.eingangsnummer) data.eingangsnummer = input.eingangsnummer;
       }
       if (input.nextStatus === "APPROVED" || input.nextStatus === "REJECTED") {
         data.hzaDecisionAt = now;
@@ -244,12 +343,15 @@ export const adminRouter = router({
         await logAudit(
           {
             antragId: input.id,
-            type: "STATUS_CHANGED",
+            type: input.nextStatus === "SUBMITTED" ? "PORTAL_EINGEREICHT" : "STATUS_CHANGED",
             actor: "KANZLEI",
             metadata: {
               from: app.status,
               to: input.nextStatus,
               hzaAmount: input.hzaAmount ?? null,
+              ...(input.nextStatus === "SUBMITTED"
+                ? { eingangsnummer: input.eingangsnummer ?? app.eingangsnummer }
+                : {}),
             },
           },
           tx,

@@ -10,6 +10,7 @@ export {
 } from "./complete";
 export {
   erzeugeDatensatz,
+  feldKey,
   formatEur,
   formatMwh,
   type Antragsdatensatz,

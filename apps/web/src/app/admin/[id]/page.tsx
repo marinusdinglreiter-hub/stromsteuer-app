@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Building2,
   CheckCircle2,
+  ClipboardList,
   Download,
   ExternalLink,
   FileSpreadsheet,
@@ -451,6 +452,16 @@ export default async function AdminDetailPage({ params }: Props) {
             <CardHeader icon={Download} title="Downloads" />
             <div className="space-y-2 text-sm">
               <a
+                href={`/admin/${app.id}/portal`}
+                className="flex items-center justify-between rounded-md border border-primary bg-primary/10 px-3 py-2 font-medium transition-colors hover:bg-primary/15"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <ClipboardList className="h-4 w-4 text-primary" />
+                  Portal-Eingabeblatt (Felder zum Übertragen)
+                </span>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </a>
+              <a
                 href={`/admin/${app.id}/datenblatt`}
                 className="flex items-center justify-between rounded-md border border-primary/40 bg-primary/5 px-3 py-2 font-medium transition-colors hover:bg-primary/10"
               >
@@ -517,6 +528,7 @@ export default async function AdminDetailPage({ params }: Props) {
           <StatusActions
             applicationId={app.id}
             currentStatus={app.status}
+            eingangsnummer={app.eingangsnummer}
           />
 
           {/* Timeline */}
