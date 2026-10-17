@@ -11,6 +11,7 @@
  *  - Jahres-kWh (Keyword-gewichtet; MWh wird auf kWh normalisiert)
  *  - Lieferadresse (Heuristik: Zeile nach "Lieferstelle:" / "Verbrauchsstelle:")
  *  - Stromsteuer-Betrag (aus "Stromsteuer"-Zeile in Rechnungspositionen)
+ *  - Zaehlpunkt bzw. Marktlokations-ID (ordnet Rechnungen einer Lieferstelle zu)
  *  - Composite-Confidence (0..1, wie viele Felder gefunden wurden)
  */
 
@@ -32,6 +33,8 @@ export type ParsedBeleg = {
   adresse: string | null;
   /** In der Rechnung ausgewiesener Stromsteuer-Betrag (€). */
   stromsteuerGezahlt: number | null;
+  /** Marktlokations-ID (11 Ziffern) oder Zaehlpunktbezeichnung (DE + 31 Zeichen). */
+  zaehlpunkt: string | null;
   /** Composite-Confidence: Anteil der erfolgreich extrahierten Felder. */
   confidence: number;
   /** Volltext der erkannten Zeilen, falls UI Original anzeigen will. */
@@ -82,6 +85,13 @@ const ADRESSE_LABEL_REGEX =
 
 /** Euro-Betrag im deutschen Format: z. B. "995,48 €" oder "1.234,56€" */
 const EURO_REGEX = /(\d{1,3}(?:\.\d{3})*),(\d{2})\s*€/;
+
+/** Zaehlpunktbezeichnung: DE, 6-stellige Netzbetreibernummer, PLZ, 20 Zeichen Zaehlpunktnummer. */
+const ZAEHLPUNKT_REGEX = /DE\d{11}[0-9A-Z]{20}/;
+
+/** Zeile mit Marktlokations-Label; die ID steht dort oder in der Folgezeile. */
+const MALO_LABEL_REGEX = /marktlokation|\bmalo\b/i;
+const MALO_ID_REGEX = /(?<!\d)(\d{11})(?!\d)/;
 
 function parseDeutscheZahl(integer: string, decimal: string | undefined): number {
   const withoutThousand = integer.replace(/\./g, "");
@@ -207,6 +217,22 @@ function detectAdresse(lines: string[]): string | null {
   return null;
 }
 
+function detectZaehlpunkt(lines: string[]): string | null {
+  for (let i = 0; i < lines.length; i++) {
+    if (!MALO_LABEL_REGEX.test(lines[i]!)) continue;
+    for (const candidate of [lines[i]!, lines[i + 1] ?? ""]) {
+      const match = MALO_ID_REGEX.exec(candidate.replace(/\s+/g, " "));
+      if (match) return match[1]!;
+    }
+  }
+  // OCR setzt in die 33 Zeichen gern Leerzeichen.
+  for (const line of lines) {
+    const match = ZAEHLPUNKT_REGEX.exec(line.replace(/\s+/g, "").toUpperCase());
+    if (match) return match[0];
+  }
+  return null;
+}
+
 export function parseStromrechnung(
   response: TextractResponseShape,
 ): ParsedBeleg {
@@ -217,6 +243,7 @@ export function parseStromrechnung(
   const { periodStart, periodEnd } = detectPeriod(lines);
   const adresse = detectAdresse(lines);
   const stromsteuerGezahlt = detectStromsteuer(lines);
+  const zaehlpunkt = detectZaehlpunkt(lines);
 
   // Confidence-Score: wie viele der vier Schluessel-Felder konnten extrahiert werden?
   const totalFields = 4;
@@ -234,6 +261,7 @@ export function parseStromrechnung(
     jahresKwh,
     adresse,
     stromsteuerGezahlt,
+    zaehlpunkt,
     confidence,
     rawLines: lines,
   };

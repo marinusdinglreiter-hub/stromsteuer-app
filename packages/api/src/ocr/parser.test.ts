@@ -180,3 +180,31 @@ describe("parseStromrechnung — Confidence", () => {
     expect(istOcrVertrauenswuerdig(result)).toBe(false);
   });
 });
+
+describe("parseStromrechnung — Zaehlpunkt / Marktlokation", () => {
+  it("liest die Marktlokations-ID aus derselben Zeile", () => {
+    const result = parseStromrechnung(
+      mockResponse(["Marktlokations-ID: 51238696781", "Verbrauch 12.000 kWh"]),
+    );
+    expect(result.zaehlpunkt).toBe("51238696781");
+  });
+
+  it("liest die MaLo-ID aus der Folgezeile", () => {
+    const result = parseStromrechnung(mockResponse(["MaLo", "5123 8696 781"]));
+    expect(result.zaehlpunkt).toBeNull();
+    const kompakt = parseStromrechnung(mockResponse(["MaLo-ID", "51238696781"]));
+    expect(kompakt.zaehlpunkt).toBe("51238696781");
+  });
+
+  it("liest eine Zaehlpunktbezeichnung auch mit Leerzeichen", () => {
+    const result = parseStromrechnung(
+      mockResponse(["Zählpunkt: DE 000562 66802 AO6G56M11SN51G21M24S"]),
+    );
+    expect(result.zaehlpunkt).toBe("DE00056266802AO6G56M11SN51G21M24S");
+  });
+
+  it("nimmt keine 12-stellige Kundennummer als MaLo", () => {
+    const result = parseStromrechnung(mockResponse(["Marktlokation 512386967812"]));
+    expect(result.zaehlpunkt).toBeNull();
+  });
+});
