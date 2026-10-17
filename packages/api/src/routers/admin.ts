@@ -1,10 +1,11 @@
-import { istEinreichbar, pruefeVollstaendigkeit } from "@stromsteuer/antrag";
+import { istEinreichbar, pruefeLieferstelle, pruefeVollstaendigkeit } from "@stromsteuer/antrag";
 import { prisma } from "@stromsteuer/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { berechneAntrag, ladeAntrag } from "../antrag-service";
 import { logAudit, tryLogAudit } from "../audit";
+import { STROMSTEUER_REGELSATZ_EUR_PRO_MWH } from "../calc/rates";
 import { sendMail } from "../email/client";
 import {
   renderStatusApproved,
@@ -16,6 +17,7 @@ import { env } from "../env";
 import {
   deleteBelege,
   deleteGenerated,
+  getBelegDownloadUrl,
   getGeneratedDownloadUrl,
 } from "../storage/supabase";
 import { adminProcedure, router } from "../trpc";
@@ -99,8 +101,40 @@ export const adminRouter = router({
         signedUrl(antrag.aufbereitungPdfKey, "aufbereitung"),
         signedUrl(antrag.kanzleimandatPdfKey, "kanzleimandat"),
       ]);
+      // Belege mit Link (1 h) und Pruefhinweisen je Lieferstelle.
+      const belegUrl = async (key: string) => {
+        try {
+          return await getBelegDownloadUrl(key, 60 * 60);
+        } catch (err) {
+          console.warn("[admin.get] beleg signed-url fehlgeschlagen:", err);
+          return null;
+        }
+      };
+      const lieferstellen = await Promise.all(
+        antrag.lieferstellen.map(async (l) => ({
+          ...l,
+          hinweise: pruefeLieferstelle(l, {
+            antragsjahr: antrag.antragsjahr,
+            regelsatzEurProMwh: STROMSTEUER_REGELSATZ_EUR_PRO_MWH,
+          }),
+          belege: await Promise.all(
+            l.belege.map(async (b) => ({
+              ...b,
+              stromsteuerEur: b.stromsteuerEur === null ? null : Number(b.stromsteuerEur),
+              url: await belegUrl(b.storageKey),
+            })),
+          ),
+          // Belege aus der Zeit vor dem Beleg-Modell: nur die Datei
+          ohneWerte: await Promise.all(
+            l.belegFileKeys
+              .filter((key) => !l.belege.some((b) => b.storageKey === key))
+              .map(async (key) => ({ key, url: await belegUrl(key) })),
+          ),
+        })),
+      );
       return {
         ...antrag,
+        lieferstellen,
         berechnung: berechneAntrag(antrag),
         fehlend: pruefeVollstaendigkeit(antrag, "einreichung"),
         kanzleiPaketUrl,

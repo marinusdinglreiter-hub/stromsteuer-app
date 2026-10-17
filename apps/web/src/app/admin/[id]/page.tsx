@@ -49,6 +49,29 @@ function formatDateTime(d: Date | null | undefined): string {
   });
 }
 
+function formatDate(d: Date): string {
+  // Zeitraeume liegen als UTC-Mitternacht vor (Parser), daher UTC formatieren.
+  return d.toLocaleDateString("de-DE", { timeZone: "UTC" });
+}
+
+function BelegLink({ url, name }: { url: string | null; name: string }) {
+  if (!url) {
+    return <span className="text-muted-foreground">{name}</span>;
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-primary hover:underline"
+    >
+      <FileText className="h-3 w-3" />
+      {name}
+      <ExternalLink className="h-3 w-3" />
+    </a>
+  );
+}
+
 function formatKwh(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
   return `${n.toLocaleString("de-DE")} kWh`;
@@ -202,41 +225,107 @@ export default async function AdminDetailPage({ params }: Props) {
             {app.lieferstellen.length === 0 ? (
               <div className="text-xs text-muted-foreground">Keine Lieferstellen erfasst.</div>
             ) : (
-              <table className="w-full text-xs">
-                <thead className="text-left text-muted-foreground">
-                  <tr>
-                    <th className="py-1">Firma</th>
-                    <th className="py-1">Adresse</th>
-                    <th className="py-1">Versorger</th>
-                    <th className="py-1 text-right">kWh (Sp. 3/4/5)</th>
-                    <th className="py-1 text-right">Belege</th>
-                    <th className="py-1 text-right">OCR</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {app.lieferstellen.map((l) => (
-                    <tr key={l.id}>
-                      <td className="py-1.5 text-foreground">{l.firmenname}</td>
-                      <td className="py-1.5 text-muted-foreground">
-                        {l.adresse}
-                        {l.plz ? ` · ${l.plz}` : ""}
-                      </td>
-                      <td className="py-1.5 text-muted-foreground">{l.versorger ?? "—"}</td>
-                      <td className="py-1.5 text-right tabular-nums">
+              <div className="divide-y divide-border">
+                {app.lieferstellen.map((l, i) => (
+                  <div key={l.id} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <div className="text-sm font-semibold text-foreground">
+                        {i + 1}. {l.firmenname || "ohne Bezeichnung"}
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          {l.adresse}
+                          {l.plz ? ` · ${l.plz}` : ""}
+                          {l.versorger ? ` · ${l.versorger}` : ""}
+                        </span>
+                      </div>
+                      <div className="text-xs tabular-nums text-foreground">
+                        Sp. 3/4/5:{" "}
                         {[l.kwhEigenbetrieblich, l.kwhNutzenergiePG, l.kwhNutzenergieLuF]
                           .map((k) => k.toLocaleString("de-DE"))
-                          .join(" / ")}
-                      </td>
-                      <td className="py-1.5 text-right">{l.belegFileKeys.length}</td>
-                      <td className="py-1.5 text-right text-muted-foreground">
-                        {l.ocrConfidence !== null
-                          ? `${Math.round(l.ocrConfidence * 100)} %`
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          .join(" / ")}{" "}
+                        kWh
+                      </div>
+                    </div>
+
+                    {l.hinweise.length > 0 ? (
+                      <ul className="mt-2 space-y-1">
+                        {l.hinweise.map((h) => (
+                          <li
+                            key={h.text}
+                            className={
+                              h.stufe === "warnung"
+                                ? "flex items-start gap-1.5 rounded border border-warning/30 bg-warning-soft px-2 py-1 text-xs text-warning-foreground"
+                                : "flex items-start gap-1.5 px-2 text-xs text-muted-foreground"
+                            }
+                          >
+                            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                            {h.text}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="mt-2 inline-flex items-center gap-1 text-xs text-success">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Rechnungen decken das Antragsjahr ab, Werte plausibel.
+                      </div>
+                    )}
+
+                    {l.belege.length > 0 || l.ohneWerte.length > 0 ? (
+                      <table className="mt-2 w-full text-xs">
+                        <thead className="text-left text-muted-foreground">
+                          <tr>
+                            <th className="py-1">Rechnung</th>
+                            <th className="py-1">Zeitraum</th>
+                            <th className="py-1 text-right">kWh</th>
+                            <th className="py-1 text-right">Stromsteuer</th>
+                            <th className="py-1">Zählpunkt / MaLo</th>
+                            <th className="py-1 text-right">Erkennung</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {l.belege.map((b) => (
+                            <tr key={b.id}>
+                              <td className="py-1.5">
+                                <BelegLink url={b.url} name={b.dateiname} />
+                              </td>
+                              <td className="py-1.5 tabular-nums text-muted-foreground">
+                                {b.zeitraumVon && b.zeitraumBis
+                                  ? `${formatDate(b.zeitraumVon)} – ${formatDate(b.zeitraumBis)}`
+                                  : "nicht erkannt"}
+                              </td>
+                              <td className="py-1.5 text-right tabular-nums">
+                                {b.kwh !== null ? b.kwh.toLocaleString("de-DE") : "—"}
+                              </td>
+                              <td className="py-1.5 text-right tabular-nums">
+                                {formatEur(b.stromsteuerEur)}
+                              </td>
+                              <td className="py-1.5 font-mono text-[11px] text-muted-foreground">
+                                {b.zaehlpunkt ?? "—"}
+                              </td>
+                              <td className="py-1.5 text-right text-muted-foreground">
+                                {b.extraktion === "keine"
+                                  ? "nicht lesbar"
+                                  : b.ocrConfidence !== null
+                                    ? `${Math.round(b.ocrConfidence * 100)} %`
+                                    : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                          {l.ohneWerte.map((b) => (
+                            <tr key={b.key}>
+                              <td className="py-1.5">
+                                <BelegLink url={b.url} name={b.key.split("/").pop() ?? b.key} />
+                              </td>
+                              <td colSpan={5} className="py-1.5 text-muted-foreground">
+                                ohne ausgelesene Werte
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
             )}
           </Card>
 
