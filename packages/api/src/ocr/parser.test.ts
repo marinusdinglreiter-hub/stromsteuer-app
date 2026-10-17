@@ -208,3 +208,17 @@ describe("parseStromrechnung — Zaehlpunkt / Marktlokation", () => {
     expect(result.zaehlpunkt).toBeNull();
   });
 });
+
+describe("parseStromrechnung — Stromsteuer mit EUR statt Euro-Zeichen", () => {
+  it("erkennt 'EUR' als Waehrung", () => {
+    const result = parseStromrechnung(mockResponse(["Stromsteuer 1.435,00 EUR"]));
+    expect(result.stromsteuerGezahlt).toBe(1435);
+  });
+
+  it("nimmt den Betrag, nicht den Arbeitspreis in ct/kWh", () => {
+    const result = parseStromrechnung(
+      mockResponse(["Stromsteuer 70.000 kWh x 2,05 ct/kWh 1.435,00 EUR"]),
+    );
+    expect(result.stromsteuerGezahlt).toBe(1435);
+  });
+});

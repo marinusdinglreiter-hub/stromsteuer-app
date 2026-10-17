@@ -20,13 +20,14 @@ export function MassenUpload() {
     progress: { done: number; total: number };
     errors: string[];
     info: string | null;
-    ocrAvailable: boolean;
+    /** false = mindestens eine Rechnung konnte nicht automatisch gelesen werden */
+    alleGelesen: boolean;
   }>({
     loading: false,
     progress: { done: 0, total: 0 },
     errors: [],
     info: null,
-    ocrAvailable: true,
+    alleGelesen: true,
   });
 
   async function handleFiles(files: FileList | null) {
@@ -37,10 +38,10 @@ export function MassenUpload() {
       progress: { done: 0, total: list.length },
       errors: [],
       info: null,
-      ocrAvailable: true,
+      alleGelesen: true,
     });
 
-    let ocrAvailable = true;
+    let ungelesen = 0;
     const fileErrors: string[] = [];
     const lieferstellen = new Set<string>();
 
@@ -54,7 +55,7 @@ export function MassenUpload() {
           fileErrors.push(`${file.name}: ${result.error}`);
         } else {
           lieferstellen.add(result.lieferstelleId);
-          if (!result.ocrAvailable) ocrAvailable = false;
+          if (result.extractionStatus !== "ok") ungelesen++;
         }
       } catch (err) {
         fileErrors.push(
@@ -72,13 +73,13 @@ export function MassenUpload() {
       loading: false,
       progress: { done: list.length, total: list.length },
       errors: fileErrors,
-      ocrAvailable,
+      alleGelesen: ungelesen === 0,
       info:
         erfolge === 0
           ? null
-          : ocrAvailable
-            ? `${erfolge} Rechnung(en) verarbeitet, ${lieferstellen.size} Lieferstelle(n) zugeordnet. Bitte unten prüfen.`
-            : "Upload erfolgreich. OCR ist nicht konfiguriert — Werte manuell ergänzen.",
+          : ungelesen === 0
+            ? `${erfolge} Rechnung(en) gelesen, ${lieferstellen.size} Lieferstelle(n) zugeordnet. Bitte unten prüfen.`
+            : `${erfolge} Rechnung(en) hochgeladen, ${ungelesen} davon nicht automatisch lesbar (Scan oder Foto). Bitte die Werte unten von Hand ergänzen.`,
     });
   }
 
@@ -122,7 +123,7 @@ export function MassenUpload() {
       ) : null}
       {state.info ? (
         <FormAlert
-          variant={state.ocrAvailable ? "success" : "warning"}
+          variant={state.alleGelesen ? "success" : "warning"}
           className="mt-3"
         >
           {state.info}

@@ -83,8 +83,8 @@ const DATE_REGEX = /\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b/g;
 const ADRESSE_LABEL_REGEX =
   /^(Liefer(?:stelle|adresse)|Verbrauchs(?:stelle|adresse)|Standort)[\s:]*/i;
 
-/** Euro-Betrag im deutschen Format: z. B. "995,48 €" oder "1.234,56€" */
-const EURO_REGEX = /(\d{1,3}(?:\.\d{3})*),(\d{2})\s*€/;
+/** Euro-Betrag im deutschen Format: z. B. "995,48 €", "1.234,56€" oder "1.234,56 EUR" */
+const EURO_REGEX = /(\d{1,3}(?:\.\d{3})*),(\d{2})\s*(?:€|EUR\b)/i;
 
 /** Zaehlpunktbezeichnung: DE, 6-stellige Netzbetreibernummer, PLZ, 20 Zeichen Zaehlpunktnummer. */
 const ZAEHLPUNKT_REGEX = /DE\d{11}[0-9A-Z]{20}/;

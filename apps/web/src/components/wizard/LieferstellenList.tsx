@@ -26,7 +26,14 @@ export function LieferstellenList({ initial }: Props) {
   return (
     <div className="space-y-3">
       {initial.map((l, idx) => (
-        <LieferstelleCard key={l.id} index={idx} lieferstelle={l} />
+        // Der Formularzustand der Karte kommt aus den Props beim Mounten. Nach
+        // einem Upload aendern sich Menge, Adresse und Belege serverseitig;
+        // der Key baut die Karte dann mit den neuen Werten neu auf.
+        <LieferstelleCard
+          key={`${l.id}-${l.belegFileKeys.length}`}
+          index={idx}
+          lieferstelle={l}
+        />
       ))}
       <button
         type="button"
