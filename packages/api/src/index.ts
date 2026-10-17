@@ -34,6 +34,13 @@ export {
 export { isOcrAvailable, ocrStromrechnung } from "./ocr/textract";
 export { isPdfFile, ocrPdfLokal } from "./ocr/pdf-local";
 export {
+  extrahiereBeleg,
+  type ExtraktionsErgebnis,
+  type ExtraktionsMethode,
+} from "./ocr/extract";
+export { sha256Hex } from "./crypto";
+export { STROMSTEUER_REGELSATZ_EUR_PRO_MWH } from "./calc/rates";
+export {
   deleteBelege,
   deleteGenerated,
   getBelegDownloadUrl,

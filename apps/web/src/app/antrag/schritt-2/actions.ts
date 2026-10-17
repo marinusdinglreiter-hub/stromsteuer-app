@@ -1,12 +1,11 @@
 "use server";
 
 import {
+  extrahiereBeleg,
   istWirtschaftlich,
   isOcrAvailable,
   MINDEST_KWH_WIRTSCHAFTLICH,
-  isPdfFile,
-  ocrPdfLokal,
-  ocrStromrechnung,
+  sha256Hex,
   uploadBeleg,
   type ParsedBeleg,
 } from "@stromsteuer/api";
@@ -102,43 +101,34 @@ export type UploadOcrResult =
       parsed: SerializedParsedBeleg;
       ocrAvailable: boolean;
       extractionStatus: ExtractionStatus;
+      /** Wie der Beleg zugeordnet wurde (gewaehlt, Zaehlpunkt, Adresse, neu) */
+      zuordnung: BelegZuordnung;
+      anzahlBelege: number;
+      /** Summe aller erkannten Mengen dieser Lieferstelle */
+      belegSummeKwh: number | null;
+      /** Menge der Lieferstelle nach dem Upload */
+      kwhEigenbetrieblich: number;
+      /** false = Kunde hatte die Menge von Hand geaendert, sie bleibt stehen */
+      mengeUebernommen: boolean;
     }
   | { ok: false; error: string };
 
+export type BelegZuordnung = "gewaehlt" | "zaehlpunkt" | "adresse" | "neu";
+
 export type SerializedParsedBeleg = Omit<
   ParsedBeleg,
-  "periodStart" | "periodEnd"
+  "periodStart" | "periodEnd" | "rawLines"
 > & {
   periodStart: string | null;
   periodEnd: string | null;
 };
 
 function serializeParsed(parsed: ParsedBeleg): SerializedParsedBeleg {
+  const { rawLines: _rawLines, ...rest } = parsed;
   return {
-    ...parsed,
+    ...rest,
     periodStart: parsed.periodStart?.toISOString() ?? null,
     periodEnd: parsed.periodEnd?.toISOString() ?? null,
-  };
-}
-
-/**
- * Was die Rechnung ausser der Menge noch hergibt. Landet an der Lieferstelle
- * und im Pruefprotokoll des Datenblatts. Nur gesetzte Werte, damit eine
- * spaetere, schlechtere Erkennung nichts ueberschreibt.
- */
-function ocrFelder(parsed: ParsedBeleg): {
-  versorger?: string;
-  zeitraumVon?: Date;
-  zeitraumBis?: Date;
-  stromsteuerGezahltEur?: number;
-} {
-  return {
-    ...(parsed.versorger ? { versorger: parsed.versorger } : {}),
-    ...(parsed.periodStart ? { zeitraumVon: parsed.periodStart } : {}),
-    ...(parsed.periodEnd ? { zeitraumBis: parsed.periodEnd } : {}),
-    ...(parsed.stromsteuerGezahlt != null
-      ? { stromsteuerGezahltEur: parsed.stromsteuerGezahlt }
-      : {}),
   };
 }
 
@@ -151,10 +141,10 @@ const ALLOWED_MIMES = new Set([
 ]);
 
 /**
- * Nimmt eine hochgeladene Datei, schiebt sie nach Supabase Storage und
- * laeuft (falls AWS-Credentials gesetzt) durch Textract. Optional bestehende
- * Lieferstelle anhaengen, sonst neue erstellen. Rueckgabe enthaelt parsed-Werte
- * zur Vorbefuellung der Karte im Browser.
+ * Nimmt eine hochgeladene Rechnung an: Duplikat pruefen, nach Supabase
+ * Storage schieben, Werte auslesen (Textract, sonst lokale PDF-Extraktion)
+ * und als Beleg erfassen. Mit `lieferstelleId` an diese Lieferstelle, sonst
+ * automatisch zugeordnet (Zaehlpunkt, Adresse) oder als neue Lieferstelle.
  */
 export async function uploadAndOcrAction(
   formData: FormData,
@@ -181,8 +171,18 @@ export async function uploadAndOcrAction(
   const application = await caller.application.current();
 
   const bytes = new Uint8Array(await file.arrayBuffer());
+  const sha256 = sha256Hex(bytes);
 
-  // 1) Datei nach Storage. Wenn Supabase nicht konfiguriert ist, geht das
+  // 1) Dieselbe Datei nicht zweimal zaehlen.
+  const duplikat = await caller.lieferstelle.belegDuplikat({ sha256 });
+  if (duplikat) {
+    return {
+      ok: false,
+      error: `Diese Rechnung wurde bereits hochgeladen (${duplikat}).`,
+    };
+  }
+
+  // 2) Datei nach Storage. Wenn Supabase nicht konfiguriert ist, geht das
   // hier auf eine klare Fehlermeldung.
   let storageKey: string;
   try {
@@ -200,103 +200,49 @@ export async function uploadAndOcrAction(
     };
   }
 
-  // 2) OCR: AWS Textract wenn konfiguriert, sonst lokale PDF-Extraktion als Fallback.
-  let parsed: ParsedBeleg = {
-    versorger: null,
-    periodStart: null,
-    periodEnd: null,
-    jahresKwh: null,
-    adresse: null,
-    stromsteuerGezahlt: null,
-    confidence: 0,
-    rawLines: [],
-  };
-  // Wurde ueberhaupt ein Extraktionsweg genutzt? Bei Bilddateien ohne
-  // Cloud-OCR gibt es keinen lokalen Fallback -> "unavailable".
-  let versuchteExtraktion = false;
-  if (isOcrAvailable()) {
-    versuchteExtraktion = true;
-    try {
-      parsed = await ocrStromrechnung(bytes);
-    } catch (err) {
-      console.warn("[uploadAndOcrAction] Textract fehlgeschlagen:", err);
-    }
-  } else if (isPdfFile(file.type)) {
-    versuchteExtraktion = true;
-    try {
-      parsed = await ocrPdfLokal(bytes);
-    } catch (err) {
-      console.warn("[uploadAndOcrAction] Lokale PDF-Extraktion fehlgeschlagen:", err);
-    }
-  }
-
-  const extractionStatus: ExtractionStatus = !versuchteExtraktion
+  // 3) Werte auslesen.
+  const { parsed, methode, versucht } = await extrahiereBeleg(bytes, file.type);
+  const extractionStatus: ExtractionStatus = !versucht
     ? "unavailable"
     : parsed.confidence > 0
       ? "ok"
       : "empty";
 
-  // 3) Lieferstelle aktualisieren oder neu anlegen.
-  const lieferstelleId =
-    typeof lieferstelleIdRaw === "string" && lieferstelleIdRaw.length > 0
-      ? lieferstelleIdRaw
-      : null;
-
-  if (lieferstelleId) {
-    // Bestehende Lieferstelle: belegFileKeys appenden, kWh nur ueberschreiben
-    // wenn bisher 0.
-    const existing = await caller.lieferstelle.list();
-    const current = existing.find((l) => l.id === lieferstelleId);
-    if (!current) {
-      return { ok: false, error: "Lieferstelle nicht gefunden." };
-    }
-    await caller.lieferstelle.update({
-      id: lieferstelleId,
-      firmenname:
-        current.firmenname || parsed.versorger
-          ? current.firmenname || parsed.versorger || undefined
+  // 4) Beleg erfassen, Lieferstelle zuordnen und Summen nachziehen.
+  try {
+    const erfasst = await caller.lieferstelle.belegErfassen({
+      lieferstelleId:
+        typeof lieferstelleIdRaw === "string" && lieferstelleIdRaw.length > 0
+          ? lieferstelleIdRaw
           : undefined,
-      adresse:
-        current.adresse || parsed.adresse
-          ? current.adresse || parsed.adresse || undefined
-          : undefined,
-      kwhEigenbetrieblich:
-        current.kwhEigenbetrieblich === 0 && parsed.jahresKwh != null
-          ? parsed.jahresKwh
-          : undefined,
-      ...ocrFelder(parsed),
-      belegFileKeys: [...current.belegFileKeys, storageKey],
-      ocrConfidence: parsed.confidence,
+      storageKey,
+      dateiname: file.name.slice(0, 255),
+      sha256,
+      extraktion: methode,
+      kwh: parsed.jahresKwh,
+      zeitraumVon: parsed.periodStart,
+      zeitraumBis: parsed.periodEnd,
+      stromsteuerEur: parsed.stromsteuerGezahlt,
+      versorger: parsed.versorger,
+      adresse: parsed.adresse?.slice(0, 300) ?? null,
+      zaehlpunkt: parsed.zaehlpunkt,
+      ocrConfidence: versucht ? parsed.confidence : null,
     });
     revalidatePath(SCHRITT2_PATH);
     return {
       ok: true,
-      lieferstelleId,
       storageKey,
       parsed: serializeParsed(parsed),
       ocrAvailable: isOcrAvailable(),
       extractionStatus,
+      ...erfasst,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Rechnung konnte nicht gespeichert werden.",
     };
   }
-
-  // Neue Lieferstelle aus OCR-Ergebnis (MassenUpload-Flow).
-  const created = await caller.lieferstelle.create({
-    firmenname: parsed.versorger ?? "",
-    adresse: parsed.adresse ?? "",
-    kwhEigenbetrieblich: parsed.jahresKwh ?? 0,
-    ...ocrFelder(parsed),
-    belegFileKeys: [storageKey],
-    ocrConfidence: parsed.confidence,
-  });
-  revalidatePath(SCHRITT2_PATH);
-  return {
-    ok: true,
-    lieferstelleId: created.id,
-    storageKey,
-    parsed: serializeParsed(parsed),
-    ocrAvailable: isOcrAvailable(),
-    extractionStatus,
-  };
 }
 
 /** Speichert + navigiert zu Schritt 2b (Erklaerungen). */

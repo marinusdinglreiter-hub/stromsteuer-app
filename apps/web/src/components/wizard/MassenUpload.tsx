@@ -8,8 +8,10 @@ import { FormAlert } from "@/components/ui/FormAlert";
 
 /**
  * Massen-Upload: Akzeptiert mehrere Belege auf einmal, ruft pro Datei
- * `uploadAndOcrAction` ohne lieferstelleId — der Server legt fuer jeden
- * Beleg eine neue Lieferstelle an, vorausgefuellt aus dem OCR-Resultat.
+ * `uploadAndOcrAction` ohne lieferstelleId. Der Server ordnet jede Rechnung
+ * ueber Zaehlpunkt oder Adresse einer bestehenden Lieferstelle zu und legt
+ * nur fuer unbekannte Stellen eine neue an — zwoelf Monatsrechnungen ergeben
+ * so eine Lieferstelle mit der Jahressumme.
  */
 export function MassenUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,6 +42,7 @@ export function MassenUpload() {
 
     let ocrAvailable = true;
     const fileErrors: string[] = [];
+    const lieferstellen = new Set<string>();
 
     for (let i = 0; i < list.length; i++) {
       const file = list[i]!;
@@ -49,8 +52,9 @@ export function MassenUpload() {
         const result = await uploadAndOcrAction(formData);
         if (!result.ok) {
           fileErrors.push(`${file.name}: ${result.error}`);
-        } else if (!result.ocrAvailable) {
-          ocrAvailable = false;
+        } else {
+          lieferstellen.add(result.lieferstelleId);
+          if (!result.ocrAvailable) ocrAvailable = false;
         }
       } catch (err) {
         fileErrors.push(
@@ -73,7 +77,7 @@ export function MassenUpload() {
         erfolge === 0
           ? null
           : ocrAvailable
-            ? `${erfolge} Datei(en) verarbeitet. Lieferstellen werden unten angezeigt.`
+            ? `${erfolge} Rechnung(en) verarbeitet, ${lieferstellen.size} Lieferstelle(n) zugeordnet. Bitte unten prüfen.`
             : "Upload erfolgreich. OCR ist nicht konfiguriert — Werte manuell ergänzen.",
     });
   }
