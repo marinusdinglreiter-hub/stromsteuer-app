@@ -1,3 +1,4 @@
+import { StichtagHinweis } from "@/components/wizard/StichtagHinweis";
 import { calculateErstattung } from "@stromsteuer/api";
 import { Button } from "@stromsteuer/ui/button";
 import { ArrowRight, CheckCircle2, FileText, RefreshCcw } from "lucide-react";
@@ -62,6 +63,8 @@ export default async function Schritt1Page({ searchParams }: Props) {
       <Stepper current="berechnen" />
 
       <div className="mx-auto max-w-3xl">
+        <StichtagHinweis antragsjahr={antragsjahr} />
+
         {nachTriage ? (
           <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-success/30 bg-success-soft px-3 py-2 text-sm text-success">
             <CheckCircle2 className="h-4 w-4" />

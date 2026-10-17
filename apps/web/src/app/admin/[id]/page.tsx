@@ -19,7 +19,7 @@ import { Badge } from "@stromsteuer/ui/badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { adminSetPortalVollmachtAction } from "@/app/admin/actions";
+import { PortalZugangKarte } from "@/components/admin/PortalZugangKarte";
 import { StatusActions } from "@/components/admin/StatusActions";
 import { formatEurRund } from "@/lib/format";
 import { statusMeta } from "@/lib/status";
@@ -409,42 +409,18 @@ export default async function AdminDetailPage({ params }: Props) {
           {/* Portal-Vollmacht */}
           <Card>
             <CardHeader icon={KeyRound} title="Vollmacht im Zoll-Portal" />
-            <form action={adminSetPortalVollmachtAction} className="space-y-2 text-sm">
-              <input type="hidden" name="id" value={app.id} />
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Status</span>
-                <select
-                  name="vollmachtStatus"
-                  defaultValue={vollmacht}
-                  className="block h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                >
-                  <option value="OFFEN">offen</option>
-                  <option value="ERTEILT">erteilt</option>
-                  <option value="CODE_EINGELOEST">Zugangscode eingelöst</option>
-                  <option value="AKTIV">aktiv, Umfang geprüft</option>
-                  <option value="SCOPE_FALSCH">falsche Dienstleistung gewählt</option>
-                  <option value="ABGELAUFEN">abgelaufen</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Beteiligten-Nummer</span>
-                <input
-                  name="beteiligtenNummer"
-                  defaultValue={m?.portalZugang?.beteiligtenNummer ?? ""}
-                  className="block h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={!m}
-                className="h-9 w-full rounded-md border border-input text-sm font-medium hover:bg-muted disabled:opacity-50"
-              >
-                Speichern
-              </button>
-              <p className="text-xs text-muted-foreground">
-                Dienstleistung muss „Sonstige steuerliche Anträge“ sein.
-              </p>
-            </form>
+            <PortalZugangKarte
+              antragId={app.id}
+              mandantVorhanden={Boolean(m)}
+              vollmachtStatus={vollmacht}
+              elsterStatus={m?.portalZugang?.elsterStatus ?? "UNBEKANNT"}
+              beteiligtenNummer={m?.portalZugang?.beteiligtenNummer ?? null}
+              codeVorhanden={Boolean(m?.portalZugang?.zugangscodeEnc)}
+              codeEingegangenAt={m?.portalZugang?.zugangscodeEingegangenAt?.toISOString() ?? null}
+              eskalationsstufe={m?.portalZugang?.eskalationsstufe ?? 0}
+              rueckrufAngefordertAt={m?.portalZugang?.rueckrufAngefordertAt?.toISOString() ?? null}
+              schritteErledigt={m?.portalZugang?.schritteErledigt ?? []}
+            />
           </Card>
 
           {/* Downloads */}

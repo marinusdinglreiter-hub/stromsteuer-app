@@ -1,4 +1,9 @@
-import { istEinreichbar, pruefeLieferstelle, pruefeVollstaendigkeit } from "@stromsteuer/antrag";
+import {
+  istEinreichbar,
+  pausenUpdate,
+  pruefeLieferstelle,
+  pruefeVollstaendigkeit,
+} from "@stromsteuer/antrag";
 import { prisma } from "@stromsteuer/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -7,7 +12,10 @@ import { berechneAntrag, ladeAntrag } from "../antrag-service";
 import { logAudit, tryLogAudit } from "../audit";
 import { STROMSTEUER_REGELSATZ_EUR_PRO_MWH } from "../calc/rates";
 import { sendMail } from "../email/client";
+import { renderVollmachtAktiv } from "../email/portal-templates";
 import { datensatzFuer } from "../forms/datenblatt";
+import { portalMailInput, sendeErinnerungen } from "../portal-service";
+import { decryptSecret } from "../secrets";
 import {
   renderStatusApproved,
   renderStatusPaid,
@@ -234,7 +242,10 @@ export const adminRouter = router({
 
   /**
    * Portal-Zugang des Mandanten pflegen (Vollmacht im Zoll-Portal). Ohne
-   * aktive Vollmacht kann die Kanzlei nicht einreichen.
+   * aktive Vollmacht kann die Kanzlei nicht einreichen. "Aktiv" setzt die
+   * Pruefung voraus, dass die Vollmacht auf "Sonstige steuerliche Antraege"
+   * lautet und die digitale Bescheidbereitstellung aktiv ist; erst dann
+   * schaltet die Kundenseite auf fertig und die Bestaetigungsmail geht raus.
    */
   setPortalVollmacht: adminProcedure
     .input(
@@ -248,23 +259,65 @@ export const adminRouter = router({
           "ABGELAUFEN",
           "SCOPE_FALSCH",
         ]),
+        elsterStatus: z.enum(["UNBEKANNT", "VORHANDEN", "BEIM_STB", "FEHLT", "BEANTRAGT"]).optional(),
         beteiligtenNummer: z.string().max(40).optional(),
         geprueftVon: z.string().max(120).optional(),
+        /** Pflicht fuer "aktiv": Dienstleistung ist "Sonstige steuerliche Antraege" */
+        scopeGeprueft: z.boolean().optional(),
+        /** Pflicht fuer "aktiv": digitale Bescheidbereitstellung ist aktiv */
+        bescheidZustellungAktiv: z.boolean().optional(),
+        /** Fuer die Bestaetigungsmail an den Kunden */
+        brand: z
+          .object({ name: z.string().min(1), shortName: z.string().min(1), kanzleiName: z.string().min(1) })
+          .optional(),
       }),
     )
     .mutation(async ({ input }) => {
       const antrag = await prisma.antrag.findUnique({
         where: { id: input.id },
-        select: { mandantId: true },
+        select: { mandantId: true, mandant: { select: { portalZugang: true } } },
       });
       if (!antrag?.mandantId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Antrag hat noch keinen Mandanten." });
       }
+      const alt = antrag.mandant?.portalZugang ?? null;
       const aktiv = input.vollmachtStatus === "AKTIV";
+      if (aktiv && !(input.scopeGeprueft && input.bescheidZustellungAktiv)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Vor „aktiv“ bitte prüfen: Dienstleistung „Sonstige steuerliche Anträge“ und digitale Bescheidbereitstellung.",
+        });
+      }
+
+      const jetzt = new Date();
+      const pause = input.elsterStatus
+        ? pausenUpdate(
+            alt?.elsterStatus ?? "UNBEKANNT",
+            input.elsterStatus,
+            jetzt,
+            alt?.pausiertSeit ?? null,
+            alt?.pausierteTage ?? 0,
+          )
+        : {};
+      // Der Zugangscode wird nur bis zum Einloesen gebraucht.
+      const codeWeg = input.vollmachtStatus === "CODE_EINGELOEST" || aktiv;
       const data = {
         vollmachtStatus: input.vollmachtStatus,
+        ...(input.elsterStatus ? { elsterStatus: input.elsterStatus } : {}),
+        ...pause,
         ...(input.beteiligtenNummer ? { beteiligtenNummer: input.beteiligtenNummer } : {}),
-        ...(aktiv ? { scopeGeprueftAt: new Date(), scopeGeprueftVon: input.geprueftVon ?? "Kanzlei" } : {}),
+        ...(codeWeg ? { zugangscodeEnc: null } : {}),
+        ...(input.vollmachtStatus === "CODE_EINGELOEST" && !alt?.zugangscodeEingeloestAt
+          ? { zugangscodeEingeloestAt: jetzt }
+          : {}),
+        ...(aktiv
+          ? {
+              scopeGeprueftAt: jetzt,
+              scopeGeprueftVon: input.geprueftVon ?? "Kanzlei",
+              bescheidZustellungAktiv: true,
+            }
+          : {}),
       };
       const zugang = await prisma.portalZugang.upsert({
         where: { mandantId: antrag.mandantId },
@@ -275,10 +328,91 @@ export const adminRouter = router({
         antragId: input.id,
         type: "STATUS_CHANGED",
         actor: "KANZLEI",
-        metadata: { portalVollmacht: input.vollmachtStatus },
+        metadata: {
+          portalVollmacht: input.vollmachtStatus,
+          ...(input.elsterStatus ? { elster: input.elsterStatus } : {}),
+        },
       });
+
+      // Wird aktiv: Kunde erfaehrt es (inkl. Hinweis auf die Bescheid-Zustellung).
+      if (aktiv && alt?.vollmachtStatus !== "AKTIV" && input.brand) {
+        const { input: mailInput, email } = await portalMailInput(input.id, input.brand);
+        if (email) {
+          const mail = renderVollmachtAktiv(mailInput);
+          try {
+            await sendMail({
+              to: email,
+              subject: mail.subject,
+              html: mail.html,
+              text: mail.text,
+              replyTo: env().KANZLEI_EMAIL_INBOX,
+            });
+          } catch (err) {
+            console.warn("[admin.setPortalVollmacht] Mail fehlgeschlagen:", err);
+          }
+        }
+      }
       return zugang;
     }),
+
+  /**
+   * Zugangscode fuer die Kanzlei sichtbar machen (nur bis zum Einloesen
+   * gespeichert, verschluesselt). Jeder Abruf steht im Audit-Log.
+   */
+  zugangscodeAnzeigen: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const secret = env().PORTAL_CODE_SECRET;
+      if (!secret) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PORTAL_CODE_SECRET ist nicht gesetzt." });
+      }
+      const antrag = await ladeAntrag(input.id);
+      const zugang = antrag.mandant?.portalZugang;
+      if (!zugang?.zugangscodeEnc) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Kein Zugangscode gespeichert." });
+      }
+      let code: string;
+      try {
+        code = decryptSecret(zugang.zugangscodeEnc, secret);
+      } catch {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Der Code lässt sich nicht entschlüsseln (Schlüssel geändert?). Bitte beim Kunden neu anfordern.",
+        });
+      }
+      await tryLogAudit({
+        antragId: input.id,
+        type: "PORTAL_ZUGANG_GEAENDERT",
+        actor: "KANZLEI",
+        metadata: { aktion: "zugangscode-angezeigt" },
+      });
+      return { code, beteiligtenNummer: zugang.beteiligtenNummer, eingegangenAt: zugang.zugangscodeEingegangenAt };
+    }),
+
+  /** Code ist im Portal eingeloest: Code loeschen, Status auf "eingeloest" setzen. */
+  zugangscodeEingeloest: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const antrag = await ladeAntrag(input.id);
+      if (!antrag.mandantId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Antrag hat noch keinen Mandanten." });
+      }
+      const mandantId = antrag.mandantId;
+      await prisma.$transaction(async (tx) => {
+        await tx.portalZugang.upsert({
+          where: { mandantId },
+          create: { mandantId, vollmachtStatus: "CODE_EINGELOEST", zugangscodeEingeloestAt: new Date() },
+          update: { vollmachtStatus: "CODE_EINGELOEST", zugangscodeEnc: null, zugangscodeEingeloestAt: new Date() },
+        });
+        await logAudit({ antragId: input.id, type: "PORTAL_CODE_EINGELOEST", actor: "KANZLEI" }, tx);
+      });
+      return { ok: true };
+    }),
+
+  /** Taeglicher Lauf (Cron): verschickt faellige Erinnerungen zum Portal-Zugang. */
+  portalErinnerungen: adminProcedure
+    .input(z.object({ name: z.string().min(1), shortName: z.string().min(1), kanzleiName: z.string().min(1) }))
+    .mutation(({ input }) => sendeErinnerungen(input)),
 
   /**
    * Status-Update durch die Kanzlei. Setzt entsprechende Timestamps + ggf.

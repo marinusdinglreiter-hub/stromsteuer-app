@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import {
   ANTRAG_MIT_RELATIONEN_INCLUDE,
   pruefeVollstaendigkeit,
+  stichtagsPruefung,
   vorpruefung,
   type VorpruefungErgebnis,
 } from "@stromsteuer/antrag";
@@ -410,6 +411,18 @@ export const applicationRouter = router({
           message:
             "Dokument-Speicher ist nicht konfiguriert — Signatur kann nicht rechtssicher abgelegt werden.",
         });
+      }
+      // Stichtagsregel: nach dem 24.11. des Fristjahres ist die Einreichung vor der
+      // Ausschlussfrist nicht mehr zuverlaessig. Kein Vertrag, den wir nicht erfuellen koennen.
+      if (ctx.application.antragsjahr !== null) {
+        const stichtag = stichtagsPruefung(ctx.application.antragsjahr, new Date());
+        if (stichtag.status === "zu-spaet") {
+          const d = stichtag.startMitZertifikat;
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `Für das Verbrauchsjahr ${ctx.application.antragsjahr} war der späteste Start der ${String(d.tag).padStart(2, "0")}.${String(d.monat).padStart(2, "0")}.${d.jahr}. Die Einreichung vor der Ausschlussfrist ist nicht mehr zuverlässig möglich. Bitte melden Sie sich bei uns, bevor Sie unterschreiben.`,
+          });
+        }
       }
       if (input.consentVersion && input.consentVersion !== CONSENT_VERSION) {
         throw new TRPCError({

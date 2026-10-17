@@ -56,29 +56,59 @@ export async function adminSetPortalFeldAction(
   return { ok: true };
 }
 
-const VOLLMACHT_STATUS = [
-  "OFFEN",
-  "ERTEILT",
-  "CODE_EINGELOEST",
-  "AKTIV",
-  "ABGELAUFEN",
-  "SCOPE_FALSCH",
-] as const;
+export type VollmachtEingabe = {
+  id: string;
+  vollmachtStatus: "OFFEN" | "ERTEILT" | "CODE_EINGELOEST" | "AKTIV" | "ABGELAUFEN" | "SCOPE_FALSCH";
+  elsterStatus?: "UNBEKANNT" | "VORHANDEN" | "BEIM_STB" | "FEHLT" | "BEANTRAGT";
+  beteiligtenNummer?: string;
+  /** Pruefung vor "aktiv": Dienstleistung lautet "Sonstige steuerliche Antraege" */
+  scopeGeprueft?: boolean;
+  /** Pruefung vor "aktiv": digitale Bescheidbereitstellung ist aktiv */
+  bescheidZustellungAktiv?: boolean;
+};
 
-/** Portal-Vollmacht des Mandanten setzen (Formular-Action im Backoffice). */
-export async function adminSetPortalVollmachtAction(formData: FormData): Promise<void> {
-  const id = String(formData.get("id") ?? "");
-  const status = String(formData.get("vollmachtStatus") ?? "");
-  const beteiligtenNummer = String(formData.get("beteiligtenNummer") ?? "").trim();
-  const vollmachtStatus = VOLLMACHT_STATUS.find((s) => s === status);
-  if (!id || !vollmachtStatus) return;
-  const caller = await getAdminServerCaller();
-  await caller.admin.setPortalVollmacht({
-    id,
-    vollmachtStatus,
-    beteiligtenNummer: beteiligtenNummer.length > 0 ? beteiligtenNummer : undefined,
-  });
+/** Portal-Vollmacht des Mandanten setzen (Backoffice). */
+export async function adminSetPortalVollmachtAction(input: VollmachtEingabe): Promise<AdminActionResult> {
+  try {
+    const caller = await getAdminServerCaller();
+    await caller.admin.setPortalVollmacht({
+      ...input,
+      beteiligtenNummer: input.beteiligtenNummer?.trim() ? input.beteiligtenNummer.trim() : undefined,
+      brand: { name: BRAND.name, shortName: BRAND.shortName, kanzleiName: BRAND.kanzlei.name },
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." };
+  }
+  revalidatePath(`/admin/${input.id}`);
+  revalidatePath(`/admin/${input.id}/portal`);
+  return { ok: true };
+}
+
+export type CodeAnzeigeResult =
+  | { ok: true; code: string; beteiligtenNummer: string | null }
+  | { ok: false; error: string };
+
+/** Zugangscode entschluesselt anzeigen (wird im Audit-Log vermerkt). */
+export async function adminZugangscodeAnzeigenAction(id: string): Promise<CodeAnzeigeResult> {
+  try {
+    const caller = await getAdminServerCaller();
+    const r = await caller.admin.zugangscodeAnzeigen({ id });
+    return { ok: true, code: r.code, beteiligtenNummer: r.beteiligtenNummer };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Code nicht verfügbar." };
+  }
+}
+
+/** Code wurde im Portal eingeloest: Code loeschen, Status setzen. */
+export async function adminZugangscodeEingeloestAction(id: string): Promise<AdminActionResult> {
+  try {
+    const caller = await getAdminServerCaller();
+    await caller.admin.zugangscodeEingeloest({ id });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." };
+  }
   revalidatePath(`/admin/${id}`);
+  return { ok: true };
 }
 
 export async function adminExpireDraftsAction(): Promise<

@@ -263,6 +263,17 @@ model PortalZugang {
   eskalationsstufe        Int               @default(0)
   letzteErinnerungAt      DateTime?
   notizen                 String?
+
+  /// Vom Kunden abgehakte Schritte der Portal-Anleitung (1 bis 5), Selbstauskunft
+  schritteErledigt Int[] @default([])
+  /// Zugangscode, vom Kunden eingegeben, AES-256-GCM-verschluesselt. Wird nach
+  /// dem Einloesen durch die Kanzlei geloescht (nie laenger als noetig speichern).
+  zugangscodeEnc           String?
+  zugangscodeEingegangenAt DateTime?
+  /// Wartezustand (kein Zertifikat / beantragt): Erinnerungs-Tage zaehlen nicht
+  pausiertSeit   DateTime?
+  pausierteTage  Int       @default(0)
+  rueckrufAngefordertAt DateTime?
 }
 
 enum ElsterStatus {
@@ -339,4 +350,9 @@ enum AuditEventType {
   BELEG_ERFASST
   PORTAL_FELD_ERLEDIGT
   PORTAL_EINGEREICHT
+  PORTAL_ZUGANG_GEAENDERT
+  PORTAL_CODE_EINGEGANGEN
+  PORTAL_CODE_EINGELOEST
+  PORTAL_ERINNERUNG
+  PORTAL_RUECKRUF
 }

@@ -1,3 +1,4 @@
+import { StichtagHinweis } from "@/components/wizard/StichtagHinweis";
 import { CONSENT_VERSION } from "@stromsteuer/api";
 import { ShieldCheck } from "lucide-react";
 import { cookies } from "next/headers";
@@ -52,6 +53,7 @@ export default async function VollmachtPage() {
             </p>
           </div>
           <div className="mt-6">
+            <StichtagHinweis antragsjahr={application.antragsjahr ?? new Date().getFullYear() - 1} />
             {ergebnis.status === "hardstop" ? (
               <Callout variant="danger" title="Ein Antrag ist in Ihrem Fall nicht möglich">
                 <ul className="list-disc space-y-1 pl-4">

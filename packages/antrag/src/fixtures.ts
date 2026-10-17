@@ -93,6 +93,12 @@ export function portalZugang(over: Partial<PortalZugang> = {}): PortalZugang {
     eskalationsstufe: 0,
     letzteErinnerungAt: null,
     notizen: null,
+    schritteErledigt: [],
+    zugangscodeEnc: null,
+    zugangscodeEingegangenAt: null,
+    pausiertSeit: null,
+    pausierteTage: 0,
+    rueckrufAngefordertAt: null,
     ...over,
   };
 }
