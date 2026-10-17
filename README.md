@@ -75,7 +75,14 @@ Prüfen:
 ```bash
 pnpm typecheck
 pnpm lint
-pnpm --filter @stromsteuer/api --filter @stromsteuer/antrag test
+pnpm --filter @stromsteuer/api --filter @stromsteuer/antrag --filter @stromsteuer/db --filter @stromsteuer/web test
+```
+
+Der Integrationstest gegen die echte Datenbank (Portal-Onboarding, Folgejahre, Kontakthistorie) läuft
+nur auf Wunsch und legt seine eigenen Testdaten an:
+
+```bash
+RUN_DB_TESTS=1 PORTAL_CODE_SECRET=test-geheimnis-123456 RESEND_API_KEY= pnpm --filter @stromsteuer/api test
 ```
 
 `/antrag/demo` legt lokal einen vorausgefüllten Antrag an. Das Backoffice unter
