@@ -49,6 +49,9 @@ model Mandant {
   antraege     Antrag[]
   portalZugang PortalZugang?
 
+  /// Verbrauchsjahr, fuer das die Januar-Erinnerung zum Folgejahr schon raus ist
+  folgejahrErinnertFuer Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -355,4 +358,6 @@ enum AuditEventType {
   PORTAL_CODE_EINGELOEST
   PORTAL_ERINNERUNG
   PORTAL_RUECKRUF
+  FOLGEJAHR_GESTARTET
+  FOLGEJAHR_ERINNERUNG
 }

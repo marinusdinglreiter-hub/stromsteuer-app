@@ -179,7 +179,7 @@ export type StichtagErgebnis = {
 const ymd = (d: { jahr: number; monat: number; tag: number }) => d.jahr * 10_000 + d.monat * 100 + d.tag;
 
 /** Kalendertag in Deutschland (Mitternachts-Grenzfaelle nicht nach UTC kippen). */
-function berlinTag(d: Date): { jahr: number; monat: number; tag: number } {
+export function berlinTag(d: Date): { jahr: number; monat: number; tag: number } {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Berlin",
     year: "numeric",

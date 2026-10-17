@@ -6,6 +6,7 @@ import { CalendarClock, Mail, Phone } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { Logo } from "@/components/brand/Logo";
+import { FolgejahrKarte } from "@/components/status/FolgejahrKarte";
 import { PortalOnboarding } from "@/components/status/PortalOnboarding";
 import {
   StatusTimeline,
@@ -38,6 +39,9 @@ export default async function StatusPage({ params }: Props) {
     application.status === "SIGNED" || application.status === "PENDING_REVIEW"
       ? await (await getServerCaller()).portal.get({ token: params.token })
       : null;
+
+  // Folgejahr: nach dem Einreichen kann der Kunde den naechsten Antrag aus dem Vorjahr starten.
+  const folgejahr = await (await getServerCaller()).folgejahr.angebot({ token: params.token });
 
   const steps = deriveTimeline({
     status: application.status,
@@ -144,6 +148,14 @@ export default async function StatusPage({ params }: Props) {
                 antragsjahr: onboarding.antragsjahr,
               })}
               kontakt={{ telefon: BRAND.phone, email: BRAND.email }}
+            />
+          ) : null}
+
+          {folgejahr.moeglich ? (
+            <FolgejahrKarte
+              token={params.token}
+              jahr={folgejahr.jahr}
+              frist={formatDatum(stichtage(folgejahr.jahr).ausschlussfrist)}
             />
           ) : null}
 

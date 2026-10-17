@@ -56,3 +56,9 @@ export {
   type StichtagErgebnis,
   type StichtagStatus,
 } from "./onboarding";
+export {
+  istJanuar,
+  pruefeFolgejahr,
+  type FolgejahrErgebnis,
+  type FolgejahrGrund,
+} from "./folgejahr";

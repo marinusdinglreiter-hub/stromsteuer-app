@@ -129,6 +129,7 @@ export function mandant(
     iban: "DE02120300000000202051",
     bic: "BYLADEM1001",
     unternehmensart: "PRODUZIERENDES_GEWERBE",
+    folgejahrErinnertFuer: null,
     createdAt: T0,
     updatedAt: T0,
     ...over,
