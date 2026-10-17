@@ -9,12 +9,14 @@
  * herein; hier werden nur Mengen auf die Spalten verteilt und formatiert.
  */
 
-import { pruefeLieferstelle, type Hinweis } from "./belege";
+import { aggregiereBelege, pruefeLieferstelle, type Hinweis } from "./belege";
 import type { AntragMitRelationen } from "./types";
 
 export type Herkunft = "kunde" | "ocr" | "berechnet" | "kanzlei" | "fest";
 
 export type DatensatzFeld = {
+  /** Stabiler Schluessel (Abschnitt + Bezeichnung), zum Abhaken im Portal-Eingabeblatt */
+  key: string;
   /** Formular-Abschnitt, z. B. "1", "4", "Seite 2" */
   abschnitt: string;
   label: string;
@@ -23,7 +25,23 @@ export type DatensatzFeld = {
   herkunft: Herkunft;
   /** Pfad im Datenmodell, fuer die Rueckverfolgung */
   pfad?: string;
+  /** Bei Herkunft "ocr": schwaechste Erkennungs-Konfidenz (0..1) der beteiligten Belege */
+  konfidenz?: number;
 };
+
+/** Schluessel aus Abschnitt und Bezeichnung: "Seite 2" + "Spalte 3 — ..." -> "seite-2-spalte-3". */
+export function feldKey(abschnitt: string, label: string): string {
+  const slug = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/ä/g, "ae")
+      .replace(/ö/g, "oe")
+      .replace(/ü/g, "ue")
+      .replace(/ß/g, "ss")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  return `${slug(abschnitt)}-${slug(label)}`.slice(0, 80);
+}
 
 /** Ergebnis von `calculateErstattung` (nur die benoetigten Felder). */
 export type BerechnungEingabe = {
@@ -131,8 +149,40 @@ export function erzeugeDatensatz(
 ): Antragsdatensatz {
   const m = antrag.mandant;
   const felder: DatensatzFeld[] = [];
-  const f = (abschnitt: string, label: string, wert: string | null | undefined, herkunft: Herkunft, pfad?: string) =>
-    felder.push({ abschnitt, label, wert: wert ?? "", herkunft, pfad });
+  const f = (
+    abschnitt: string,
+    label: string,
+    wert: string | null | undefined,
+    herkunft: Herkunft,
+    pfad?: string,
+    konfidenz?: number,
+  ) =>
+    felder.push({
+      key: feldKey(abschnitt, label),
+      abschnitt,
+      label,
+      wert: wert ?? "",
+      herkunft,
+      pfad,
+      ...(konfidenz !== undefined ? { konfidenz } : {}),
+    });
+
+  // Stammen die Mengen aus den Rechnungen? Dann gilt "ocr" mit der schwaechsten
+  // Konfidenz; hat der Kunde eine Menge von Hand geaendert oder fehlt ein
+  // lesbarer Beleg, gilt "kunde" (muss gegen den Beleg geprueft werden).
+  const mengenAusBelegen =
+    antrag.lieferstellen.length > 0 &&
+    antrag.lieferstellen.every((l) => {
+      const agg = aggregiereBelege(l.belege);
+      return (
+        l.belege.length > 0 &&
+        l.belege.every((b) => b.kwh !== null && b.extraktion !== "keine") &&
+        agg.kwh === l.kwhEigenbetrieblich + l.kwhNutzenergiePG + l.kwhNutzenergieLuF
+      );
+    });
+  const mengenKonfidenz = mengenAusBelegen
+    ? Math.min(...antrag.lieferstellen.map((l) => aggregiereBelege(l.belege).ocrConfidence ?? 1))
+    : undefined;
 
   // --- Abschnitt 1 — Anmelder und Rahmen ---
   f("1", "Anmelder/in — Name", m?.firmenname, "kunde", "mandant.firmenname");
@@ -234,7 +284,14 @@ export function erzeugeDatensatz(
 
   f("Seite 2", "Spalte 1 — Entlastungsgegenstand", "Elektrischer Strom, § 3 StromStG", "fest");
   f("Seite 2", "Spalte 2 — Entlastungssatz EUR je MWh", formatEur(tabelle.satzEurProMwh), "berechnet");
-  f("Seite 2", "Spalte 3 — betriebliche Zwecke (MWh)", formatMwh(tabelle.spalte3Mwh), "berechnet");
+  f(
+    "Seite 2",
+    "Spalte 3 — betriebliche Zwecke (MWh)",
+    formatMwh(tabelle.spalte3Mwh),
+    mengenAusBelegen ? "ocr" : "kunde",
+    undefined,
+    mengenKonfidenz,
+  );
   f("Seite 2", "Spalte 4 — Nutzenergie Produzierendes Gewerbe (MWh)", formatMwh(tabelle.spalte4Mwh), "berechnet");
   f("Seite 2", "Spalte 5 — Nutzenergie Land-/Forstwirtschaft (MWh)", formatMwh(tabelle.spalte5Mwh), "berechnet");
   f("Seite 2", "Gesamtsumme (EUR)", formatEur(tabelle.gesamtsummeEur), "berechnet");

@@ -1,4 +1,9 @@
-import { istEinreichbar, pruefeLieferstelle, pruefeVollstaendigkeit } from "@stromsteuer/antrag";
+import {
+  istEinreichbar,
+  pausenUpdate,
+  pruefeLieferstelle,
+  pruefeVollstaendigkeit,
+} from "@stromsteuer/antrag";
 import { prisma } from "@stromsteuer/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -7,6 +12,11 @@ import { berechneAntrag, ladeAntrag } from "../antrag-service";
 import { logAudit, tryLogAudit } from "../audit";
 import { STROMSTEUER_REGELSATZ_EUR_PRO_MWH } from "../calc/rates";
 import { sendMail } from "../email/client";
+import { renderVollmachtAktiv } from "../email/portal-templates";
+import { datensatzFuer } from "../forms/datenblatt";
+import { logMailAnKunde } from "../kontakt-service";
+import { portalMailInput, sendeErinnerungen } from "../portal-service";
+import { decryptSecret } from "../secrets";
 import {
   renderStatusApproved,
   renderStatusPaid,
@@ -144,8 +154,99 @@ export const adminRouter = router({
     }),
 
   /**
+   * Portal-Eingabeblatt: alle Felder in der Reihenfolge von Formular 1453 mit
+   * Herkunft, OCR-Konfidenz und Abhak-Stand, dazu Links auf die Belege.
+   */
+  portalBlatt: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const antrag = await ladeAntrag(input.id);
+      const datensatz = datensatzFuer(antrag);
+      const erledigt = await prisma.portalFeld.findMany({ where: { antragId: input.id } });
+      const erledigtMap = new Map(erledigt.map((e) => [e.feldKey, e]));
+
+      const belege = await Promise.all(
+        antrag.lieferstellen.flatMap((l, i) =>
+          l.belege.map(async (b) => {
+            let url: string | null = null;
+            try {
+              url = await getBelegDownloadUrl(b.storageKey, 60 * 60);
+            } catch (err) {
+              console.warn("[admin.portalBlatt] beleg signed-url fehlgeschlagen:", err);
+            }
+            return {
+              id: b.id,
+              lieferstelleNr: i + 1,
+              dateiname: b.dateiname,
+              url,
+              istPdf: b.dateiname.toLowerCase().endsWith(".pdf"),
+            };
+          }),
+        ),
+      );
+
+      return {
+        antragId: antrag.id,
+        firmenname: antrag.mandant?.firmenname ?? null,
+        antragsjahr: antrag.antragsjahr,
+        status: antrag.status,
+        eingangsnummer: antrag.eingangsnummer,
+        vollmachtStatus: antrag.mandant?.portalZugang?.vollmachtStatus ?? "OFFEN",
+        felder: datensatz.felder.map((f) => ({
+          ...f,
+          erledigtAt: erledigtMap.get(f.key)?.erledigtAt ?? null,
+          erledigtVon: erledigtMap.get(f.key)?.erledigtVon ?? null,
+        })),
+        fehlend: pruefeVollstaendigkeit(antrag, "einreichung"),
+        belege,
+      };
+    }),
+
+  /** Ein Feld im Portal-Eingabeblatt abhaken oder wieder oeffnen. */
+  setPortalFeld: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        feldKey: z.string().min(1).max(80),
+        erledigt: z.boolean(),
+        von: z.string().max(120).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const antrag = await ladeAntrag(input.id);
+      const gueltig = datensatzFuer(antrag).felder.some((f) => f.key === input.feldKey);
+      if (!gueltig) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Unbekanntes Feld." });
+      }
+      await prisma.$transaction(async (tx) => {
+        if (input.erledigt) {
+          await tx.portalFeld.upsert({
+            where: { antragId_feldKey: { antragId: input.id, feldKey: input.feldKey } },
+            create: { antragId: input.id, feldKey: input.feldKey, erledigtVon: input.von ?? "Kanzlei" },
+            update: {},
+          });
+        } else {
+          await tx.portalFeld.deleteMany({ where: { antragId: input.id, feldKey: input.feldKey } });
+        }
+        await logAudit(
+          {
+            antragId: input.id,
+            type: "PORTAL_FELD_ERLEDIGT",
+            actor: "KANZLEI",
+            metadata: { feldKey: input.feldKey, erledigt: input.erledigt },
+          },
+          tx,
+        );
+      });
+      return { ok: true };
+    }),
+
+  /**
    * Portal-Zugang des Mandanten pflegen (Vollmacht im Zoll-Portal). Ohne
-   * aktive Vollmacht kann die Kanzlei nicht einreichen.
+   * aktive Vollmacht kann die Kanzlei nicht einreichen. "Aktiv" setzt die
+   * Pruefung voraus, dass die Vollmacht auf "Sonstige steuerliche Antraege"
+   * lautet und die digitale Bescheidbereitstellung aktiv ist; erst dann
+   * schaltet die Kundenseite auf fertig und die Bestaetigungsmail geht raus.
    */
   setPortalVollmacht: adminProcedure
     .input(
@@ -159,23 +260,68 @@ export const adminRouter = router({
           "ABGELAUFEN",
           "SCOPE_FALSCH",
         ]),
+        elsterStatus: z.enum(["UNBEKANNT", "VORHANDEN", "BEIM_STB", "FEHLT", "BEANTRAGT"]).optional(),
         beteiligtenNummer: z.string().max(40).optional(),
         geprueftVon: z.string().max(120).optional(),
+        /** Pflicht fuer "aktiv": Dienstleistung ist "Sonstige steuerliche Antraege" */
+        scopeGeprueft: z.boolean().optional(),
+        /** Pflicht fuer "aktiv": digitale Bescheidbereitstellung ist aktiv */
+        bescheidZustellungAktiv: z.boolean().optional(),
+        /** Fuer die Bestaetigungsmail an den Kunden */
+        brand: z
+          .object({ name: z.string().min(1), shortName: z.string().min(1), kanzleiName: z.string().min(1) })
+          .optional(),
       }),
     )
     .mutation(async ({ input }) => {
       const antrag = await prisma.antrag.findUnique({
         where: { id: input.id },
-        select: { mandantId: true },
+        select: { mandantId: true, mandant: { select: { portalZugang: true } } },
       });
       if (!antrag?.mandantId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Antrag hat noch keinen Mandanten." });
       }
+      const alt = antrag.mandant?.portalZugang ?? null;
       const aktiv = input.vollmachtStatus === "AKTIV";
+      const erstAktivierung = aktiv && alt?.vollmachtStatus !== "AKTIV";
+      // Die Pruefung gehoert zur ersten Aktivierung. Spaetere Korrekturen (z. B. der
+      // Beteiligten-Nummer) verlangen sie nicht erneut und ueberschreiben den Nachweis nicht.
+      if (erstAktivierung && !(input.scopeGeprueft && input.bescheidZustellungAktiv)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Vor „aktiv“ bitte prüfen: Dienstleistung „Sonstige steuerliche Anträge“ und digitale Bescheidbereitstellung.",
+        });
+      }
+
+      const jetzt = new Date();
+      const pause = input.elsterStatus
+        ? pausenUpdate(
+            alt?.elsterStatus ?? "UNBEKANNT",
+            input.elsterStatus,
+            jetzt,
+            alt?.pausiertSeit ?? null,
+            alt?.pausierteTage ?? 0,
+          )
+        : {};
+      // Der Zugangscode wird nur bis zum Einloesen gebraucht.
+      const codeWeg = input.vollmachtStatus === "CODE_EINGELOEST" || aktiv;
       const data = {
         vollmachtStatus: input.vollmachtStatus,
+        ...(input.elsterStatus ? { elsterStatus: input.elsterStatus } : {}),
+        ...pause,
         ...(input.beteiligtenNummer ? { beteiligtenNummer: input.beteiligtenNummer } : {}),
-        ...(aktiv ? { scopeGeprueftAt: new Date(), scopeGeprueftVon: input.geprueftVon ?? "Kanzlei" } : {}),
+        ...(codeWeg ? { zugangscodeEnc: null } : {}),
+        ...(input.vollmachtStatus === "CODE_EINGELOEST" && !alt?.zugangscodeEingeloestAt
+          ? { zugangscodeEingeloestAt: jetzt }
+          : {}),
+        ...(erstAktivierung
+          ? {
+              scopeGeprueftAt: jetzt,
+              scopeGeprueftVon: input.geprueftVon ?? "Kanzlei",
+              bescheidZustellungAktiv: true,
+            }
+          : {}),
       };
       const zugang = await prisma.portalZugang.upsert({
         where: { mandantId: antrag.mandantId },
@@ -186,10 +332,133 @@ export const adminRouter = router({
         antragId: input.id,
         type: "STATUS_CHANGED",
         actor: "KANZLEI",
-        metadata: { portalVollmacht: input.vollmachtStatus },
+        metadata: {
+          portalVollmacht: input.vollmachtStatus,
+          ...(input.elsterStatus ? { elster: input.elsterStatus } : {}),
+        },
       });
+
+      // Wird aktiv: Kunde erfaehrt es (inkl. Hinweis auf die Bescheid-Zustellung).
+      if (erstAktivierung && input.brand) {
+        const { input: mailInput, email } = await portalMailInput(input.id, input.brand);
+        if (email) {
+          const mail = renderVollmachtAktiv(mailInput);
+          try {
+            const res = await sendMail({
+              to: email,
+              subject: mail.subject,
+              html: mail.html,
+              text: mail.text,
+              replyTo: env().KANZLEI_EMAIL_INBOX,
+            });
+            if (res.ok) await logMailAnKunde(antrag.mandantId, input.id, mail.subject);
+          } catch (err) {
+            console.warn("[admin.setPortalVollmacht] Mail fehlgeschlagen:", err);
+          }
+        }
+      }
       return zugang;
     }),
+
+  /**
+   * Zugangscode fuer die Kanzlei sichtbar machen (nur bis zum Einloesen
+   * gespeichert, verschluesselt). Jeder Abruf steht im Audit-Log.
+   */
+  zugangscodeAnzeigen: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const secret = env().PORTAL_CODE_SECRET;
+      if (!secret) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PORTAL_CODE_SECRET ist nicht gesetzt." });
+      }
+      const antrag = await ladeAntrag(input.id);
+      const zugang = antrag.mandant?.portalZugang;
+      if (!zugang?.zugangscodeEnc) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Kein Zugangscode gespeichert." });
+      }
+      let code: string;
+      try {
+        code = decryptSecret(zugang.zugangscodeEnc, secret);
+      } catch {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Der Code lässt sich nicht entschlüsseln (Schlüssel geändert?). Bitte beim Kunden neu anfordern.",
+        });
+      }
+      await tryLogAudit({
+        antragId: input.id,
+        type: "PORTAL_ZUGANG_GEAENDERT",
+        actor: "KANZLEI",
+        metadata: { aktion: "zugangscode-angezeigt" },
+      });
+      return { code, beteiligtenNummer: zugang.beteiligtenNummer, eingegangenAt: zugang.zugangscodeEingegangenAt };
+    }),
+
+  /** Code ist im Portal eingeloest: Code loeschen, Status auf "eingeloest" setzen. */
+  zugangscodeEingeloest: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const antrag = await ladeAntrag(input.id);
+      if (!antrag.mandantId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Antrag hat noch keinen Mandanten." });
+      }
+      const mandantId = antrag.mandantId;
+      await prisma.$transaction(async (tx) => {
+        await tx.portalZugang.upsert({
+          where: { mandantId },
+          create: { mandantId, vollmachtStatus: "CODE_EINGELOEST", zugangscodeEingeloestAt: new Date() },
+          update: { vollmachtStatus: "CODE_EINGELOEST", zugangscodeEnc: null, zugangscodeEingeloestAt: new Date() },
+        });
+        await logAudit({ antragId: input.id, type: "PORTAL_CODE_EINGELOEST", actor: "KANZLEI" }, tx);
+      });
+      return { ok: true };
+    }),
+
+  /** Kontakthistorie des Mandanten, neueste zuerst. */
+  kontakte: adminProcedure.input(z.object({ id: z.string().min(1) })).query(async ({ input }) => {
+    const antrag = await prisma.antrag.findUnique({ where: { id: input.id }, select: { mandantId: true } });
+    if (!antrag?.mandantId) return [];
+    return prisma.kontakt.findMany({
+      where: { mandantId: antrag.mandantId },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+  }),
+
+  /** Telefonat, Mail oder Notiz von Hand erfassen. */
+  kontaktErfassen: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        kanal: z.enum(["EMAIL", "TELEFON", "NOTIZ", "PORTAL"]),
+        richtung: z.enum(["AUSGEHEND", "EINGEHEND", "INTERN"]),
+        betreff: z.string().trim().min(2, "Bitte einen Betreff eintragen.").max(300),
+        text: z.string().trim().max(5000).optional(),
+        von: z.string().trim().max(120).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const antrag = await prisma.antrag.findUnique({ where: { id: input.id }, select: { mandantId: true } });
+      if (!antrag?.mandantId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Antrag hat noch keinen Mandanten." });
+      }
+      return prisma.kontakt.create({
+        data: {
+          mandantId: antrag.mandantId,
+          antragId: input.id,
+          kanal: input.kanal,
+          richtung: input.richtung,
+          betreff: input.betreff,
+          text: input.text || null,
+          erstelltVon: input.von ?? "Kanzlei",
+        },
+      });
+    }),
+
+  /** Taeglicher Lauf (Cron): verschickt faellige Erinnerungen zum Portal-Zugang. */
+  portalErinnerungen: adminProcedure
+    .input(z.object({ name: z.string().min(1), shortName: z.string().min(1), kanzleiName: z.string().min(1) }))
+    .mutation(({ input }) => sendeErinnerungen(input)),
 
   /**
    * Status-Update durch die Kanzlei. Setzt entsprechende Timestamps + ggf.
@@ -201,6 +470,8 @@ export const adminRouter = router({
         id: z.string().min(1),
         nextStatus: z.enum(["SUBMITTED", "APPROVED", "PAID", "REJECTED"]),
         hzaAmount: z.number().min(0).max(100_000_000).optional(),
+        /** Eingangsnummer des Zoll-Portals; Pflicht beim Wechsel auf SUBMITTED */
+        eingangsnummer: z.string().trim().min(3).max(60).optional(),
         brandName: z.string().min(1).max(200),
         brandShortName: z.string().min(1).max(80),
       }),
@@ -216,12 +487,20 @@ export const adminRouter = router({
         });
       }
 
+      if (input.nextStatus === "SUBMITTED" && !input.eingangsnummer && !app.eingangsnummer) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bitte die Eingangsnummer aus dem Zoll-Portal eintragen.",
+        });
+      }
+
       const now = new Date();
       const data: Record<string, unknown> = {
         status: input.nextStatus,
       };
       if (input.nextStatus === "SUBMITTED") {
         data.submittedAt = app.submittedAt ?? now;
+        if (input.eingangsnummer) data.eingangsnummer = input.eingangsnummer;
       }
       if (input.nextStatus === "APPROVED" || input.nextStatus === "REJECTED") {
         data.hzaDecisionAt = now;
@@ -244,12 +523,15 @@ export const adminRouter = router({
         await logAudit(
           {
             antragId: input.id,
-            type: "STATUS_CHANGED",
+            type: input.nextStatus === "SUBMITTED" ? "PORTAL_EINGEREICHT" : "STATUS_CHANGED",
             actor: "KANZLEI",
             metadata: {
               from: app.status,
               to: input.nextStatus,
               hzaAmount: input.hzaAmount ?? null,
+              ...(input.nextStatus === "SUBMITTED"
+                ? { eingangsnummer: input.eingangsnummer ?? app.eingangsnummer }
+                : {}),
             },
           },
           tx,
@@ -287,13 +569,14 @@ export const adminRouter = router({
                 ? "Erstattung ausgezahlt"
                 : "Bescheid: Antrag abgelehnt";
         try {
-          await sendMail({
+          const res = await sendMail({
             to: kundenEmail,
             subject,
             html: tpl.html,
             text: tpl.text,
             replyTo: e.KANZLEI_EMAIL_INBOX,
           });
+          if (res.ok) await logMailAnKunde(updated.mandantId, input.id, subject);
         } catch (err) {
           console.warn("[admin.updateStatus] Mail-Versand fehlgeschlagen:", err);
         }

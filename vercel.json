@@ -4,6 +4,14 @@
     {
       "path": "/api/cron/expire",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/portal-erinnerung",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/folgejahr-erinnerung",
+      "schedule": "0 9 * * *"
     }
   ]
 }

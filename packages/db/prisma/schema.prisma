@@ -49,6 +49,11 @@ model Mandant {
   antraege     Antrag[]
   portalZugang PortalZugang?
 
+  /// Verbrauchsjahr, fuer das die Januar-Erinnerung zum Folgejahr schon raus ist
+  folgejahrErinnertFuer Int?
+
+  kontakte Kontakt[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -88,6 +93,7 @@ model Antrag {
   // Step 2a — Lieferstellen (in eigener Tabelle)
   lieferstellen         Lieferstelle[]
   nutzenergieEmpfaenger NutzenergieEmpfaenger[]
+  portalFelder          PortalFeld[]
 
   // Unveraenderliche Eingabe-/Aktions-Historie (Audit-Trail)
   auditEvents AuditEvent[]
@@ -131,6 +137,8 @@ model Antrag {
 
   // Uebergabe an Kanzlei
   kanzleiPaketKey String?
+  /// Eingangsnummer des Zoll-Portals nach der Einreichung durch die Kanzlei
+  eingangsnummer  String?
   submittedAt     DateTime?
   hzaDecisionAt   DateTime?
   hzaAmount       Decimal?  @db.Decimal(12, 2)
@@ -191,6 +199,53 @@ model Lieferstelle {
 /// Eine hochgeladene Rechnung mit den daraus gelesenen Werten. Die Felder an
 /// der Lieferstelle (Menge, Zeitraum, Stromsteuer) sind die Summe ueber ihre
 /// Belege, solange der Kunde die Menge nicht von Hand geaendert hat.
+enum KontaktKanal {
+  EMAIL
+  TELEFON
+  NOTIZ
+  PORTAL
+}
+
+enum KontaktRichtung {
+  AUSGEHEND
+  EINGEHEND
+  INTERN
+}
+
+/// Kontakthistorie am Mandanten: Mails, Telefonate und Notizen in einer Zeitleiste.
+/// Der technische Audit-Trail (AuditEvent) bleibt davon getrennt und unveraenderlich;
+/// Kontakte darf die Kanzlei ergaenzen.
+model Kontakt {
+  id          String          @id @default(cuid())
+  mandant     Mandant         @relation(fields: [mandantId], references: [id], onDelete: Cascade)
+  mandantId   String
+  /// Bezug zu einem Verbrauchsjahr-Antrag, falls vorhanden
+  antragId    String?
+  kanal       KontaktKanal
+  richtung    KontaktRichtung
+  betreff     String
+  text        String?
+  /// true = vom System erzeugt (Erinnerungen, Status-Mails)
+  automatisch Boolean         @default(false)
+  erstelltVon String?
+  createdAt   DateTime        @default(now())
+
+  @@index([mandantId, createdAt])
+}
+
+/// Abgehakte Felder im Portal-Eingabeblatt der Kanzlei (/admin/<id>/portal).
+model PortalFeld {
+  id         String   @id @default(cuid())
+  antrag     Antrag   @relation(fields: [antragId], references: [id], onDelete: Cascade)
+  antragId   String
+  /// Stabiler Schluessel aus Formularabschnitt und Feldbezeichnung
+  feldKey    String
+  erledigtAt DateTime @default(now())
+  erledigtVon String?
+
+  @@unique([antragId, feldKey])
+}
+
 model Beleg {
   id             String       @id @default(cuid())
   lieferstelle   Lieferstelle @relation(fields: [lieferstelleId], references: [id], onDelete: Cascade)
@@ -247,6 +302,17 @@ model PortalZugang {
   eskalationsstufe        Int               @default(0)
   letzteErinnerungAt      DateTime?
   notizen                 String?
+
+  /// Vom Kunden abgehakte Schritte der Portal-Anleitung (1 bis 5), Selbstauskunft
+  schritteErledigt Int[] @default([])
+  /// Zugangscode, vom Kunden eingegeben, AES-256-GCM-verschluesselt. Wird nach
+  /// dem Einloesen durch die Kanzlei geloescht (nie laenger als noetig speichern).
+  zugangscodeEnc           String?
+  zugangscodeEingegangenAt DateTime?
+  /// Wartezustand (kein Zertifikat / beantragt): Erinnerungs-Tage zaehlen nicht
+  pausiertSeit   DateTime?
+  pausierteTage  Int       @default(0)
+  rueckrufAngefordertAt DateTime?
 }
 
 enum ElsterStatus {
@@ -321,4 +387,13 @@ enum AuditEventType {
   KANZLEIMANDAT_SIGNED
   DATENBLATT_ERZEUGT
   BELEG_ERFASST
+  PORTAL_FELD_ERLEDIGT
+  PORTAL_EINGEREICHT
+  PORTAL_ZUGANG_GEAENDERT
+  PORTAL_CODE_EINGEGANGEN
+  PORTAL_CODE_EINGELOEST
+  PORTAL_ERINNERUNG
+  PORTAL_RUECKRUF
+  FOLGEJAHR_GESTARTET
+  FOLGEJAHR_ERINNERUNG
 }

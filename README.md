@@ -25,6 +25,23 @@ Antragsdatensatz, den eine Partnerkanzlei im Zoll-Portal einreicht.
    Angaben. Im Backoffice unter `/admin/<id>/datenblatt`, jederzeit aus dem
    aktuellen Stand erzeugt, und Teil des Kanzlei-Pakets.
 
+7. **Portal-Zugang:** Auf der Statusseite führt eine Anleitung durch das Zoll-Portal
+   (ELSTER-Zweig, fünf Schritte, Zugangscode). Die Kanzlei löst den Code im Backoffice
+   ein und prüft die Vollmacht; Erinnerungen laufen per Cron (Tag 2, 5, 10, 14).
+8. **Einreichung:** Das Portal-Eingabeblatt unter `/admin/<id>/portal` zeigt alle Felder in
+   der Reihenfolge von Formular 1453 zum Kopieren und Abhaken, daneben die Belege.
+9. **Folgejahre:** Aus einem eingereichten Antrag startet der Kunde den nächsten (Stammdaten,
+   Lieferstellen und Vollmacht bleiben); im Januar erinnert ein Cron.
+
+## Vor dem Livegang
+
+In der Produktionsumgebung setzen (Vorlage: `.env.example`): `ADMIN_PASSWORD`, `CRON_SECRET`,
+`PORTAL_CODE_SECRET` (mind. 16 zufällige Zeichen, danach nicht mehr ändern),
+`NEXT_PUBLIC_CONTACT_PHONE`, `NEXT_PUBLIC_CONTACT_EMAIL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`,
+`KANZLEI_EMAIL_INBOX`, `APP_BASE_URL`. Optional: `TERMIN_URL` (Buchungslink), AWS-Schlüssel
+für Textract (ohne sie werden nur PDFs mit Textebene gelesen). Neue Tabellen brauchen Row Level
+Security (siehe `CLAUDE.md`).
+
 ## Aufbau
 
 ```
@@ -58,7 +75,14 @@ Prüfen:
 ```bash
 pnpm typecheck
 pnpm lint
-pnpm --filter @stromsteuer/api --filter @stromsteuer/antrag test
+pnpm --filter @stromsteuer/api --filter @stromsteuer/antrag --filter @stromsteuer/db --filter @stromsteuer/web test
+```
+
+Der Integrationstest gegen die echte Datenbank (Portal-Onboarding, Folgejahre, Kontakthistorie) läuft
+nur auf Wunsch und legt seine eigenen Testdaten an:
+
+```bash
+RUN_DB_TESTS=1 PORTAL_CODE_SECRET=test-geheimnis-123456 RESEND_API_KEY= pnpm --filter @stromsteuer/api test
 ```
 
 `/antrag/demo` legt lokal einen vorausgefüllten Antrag an. Das Backoffice unter

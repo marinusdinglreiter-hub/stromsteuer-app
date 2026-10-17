@@ -10,6 +10,7 @@ export {
 } from "./complete";
 export {
   erzeugeDatensatz,
+  feldKey,
   formatEur,
   formatMwh,
   type Antragsdatensatz,
@@ -37,3 +38,27 @@ export {
   type VorpruefungEingabe,
   type VorpruefungErgebnis,
 } from "./vorpruefung";
+export {
+  ANZAHL_SCHRITTE,
+  ERINNERUNG_TAGE,
+  NEUER_ZUGANG,
+  datenFortschritt,
+  faelligeErinnerung,
+  istPausiert,
+  pausenUpdate,
+  portalFortschritt,
+  portalPhase,
+  stichtagsPruefung,
+  wirksameTage,
+  type ErinnerungsStufe,
+  type OnboardingZugang,
+  type PortalPhase,
+  type StichtagErgebnis,
+  type StichtagStatus,
+} from "./onboarding";
+export {
+  istJanuar,
+  pruefeFolgejahr,
+  type FolgejahrErgebnis,
+  type FolgejahrGrund,
+} from "./folgejahr";

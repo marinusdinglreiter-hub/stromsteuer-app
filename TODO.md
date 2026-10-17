@@ -524,7 +524,15 @@ nicht-anspruchsberechtigter Fall erreicht den Vertragsschluss nicht.
 Vollständige Spezifikation inklusive Textvorlagen in
 `docs/20-vollmachts-onboarding.md`. Der Ablauf im Zoll-Portal ist dort verifiziert.
 
-- [ ] `PortalZugang`-Modell am Mandanten:
+> **Erledigt 17.10.2026 bis auf die Screenshots.** Kundenseite, Backoffice-Karte,
+> Erinnerungs-Cron und Stichtagsregel sind gebaut und gegen die echte DB getestet
+> (Migration `6_portal_onboarding`). Code: `packages/antrag/src/onboarding.ts`
+> (Zustand, Fortschritt, Erinnerungs-Takt, Stichtag), `packages/api/src/routers/portal.ts`,
+> `apps/web/src/components/status/PortalOnboarding.tsx`, Cron `/api/cron/portal-erinnerung`.
+> Der Zugangscode liegt AES-256-GCM-verschlüsselt (`PORTAL_CODE_SECRET`) nur bis zum
+> Einlösen und taucht weder im Audit-Log noch in Mails auf.
+
+- [x] `PortalZugang`-Modell am Mandanten:
 
 ```prisma
 model PortalZugang {
@@ -549,34 +557,40 @@ enum PortalKontoStatus { OFFEN REGISTRIERT }
 enum VollmachtStatus { OFFEN ERTEILT CODE_EINGELOEST AKTIV ABGELAUFEN SCOPE_FALSCH }
 ```
 
-- [ ] Kundenseite unter `/status/<token>`: fünf Schritte mit Screenshot des
-      echten Portal-Bildschirms, Direktlink, Zeitschätzung, Haken. Der Wortlaut
+- [x] Kundenseite unter `/status/<token>`: fünf Schritte mit Direktlink,
+      Zeitschätzung, Haken (Screenshots: siehe unten). Der Wortlaut
       der zu wählenden Dienstleistung — **„Sonstige steuerliche Anträge"** —
       hervorgehoben. Die Vollmacht gilt pro Dienstleistung; bei falscher Wahl
       kann die Kanzlei nicht einreichen, und das Portal meldet keinen Fehler.
-- [ ] Zwei parallele Fortschrittsspuren (Daten / Portal-Zugang), damit der Kunde
+- [ ] **Screenshots des echten Portal-Bildschirms** zu den fünf Schritten. Die Seite
+      zeigt bis dahin einen gekennzeichneten Platzhalter (`screenshot` in
+      `apps/web/src/config/portal-schritte.ts`). Braucht einen echten Portal-Zugang,
+      die Bilder lassen sich nicht erfinden.
+- [x] Zwei parallele Fortschrittsspuren (Daten / Portal-Zugang), damit der Kunde
       sieht, dass nur der Zugang fehlt. Die Spuren sind unabhängig — nicht
       seriell verketten, sonst bricht die Postlaufzeit des
       ELSTER-Aktivierungscodes den Trichter.
-- [ ] Formular für Zugangscode und Beteiligten-Nummer auf dieser Seite. Nicht per
+- [x] Formular für Zugangscode und Beteiligten-Nummer auf dieser Seite. Nicht per
       E-Mail einsammeln, Code nach dem Einlösen nicht speichern.
-- [ ] Scope-Prüfung durch die Kanzlei nach dem Einlösen, bevor der Kunde
+- [x] Scope-Prüfung durch die Kanzlei nach dem Einlösen, bevor der Kunde
       „fertig" sieht.
-- [ ] Erinnerungs-Cron (Tag 2, 5, 10, 14) analog `api/cron/expire`, mit
+- [x] Erinnerungs-Cron (Tag 2, 5, 10, 14) analog `api/cron/expire`, mit
       `CRON_SECRET`. Wartezustand `FEHLT`/`BEANTRAGT` pausiert die Zählung,
       `BEIM_STB` nicht.
-- [ ] Stichtagsregel: ab dem 10.11. ohne ELSTER-Zertifikat, ab dem 24.11. mit
+- [x] Stichtagsregel: ab dem 10.11. ohne ELSTER-Zertifikat, ab dem 24.11. mit
       Zertifikat werden Neukunden auf das nächste Verbrauchsjahr gelenkt statt
       auf das laufende. Rückrechnung in `docs/20-vollmachts-onboarding.md`.
 
 ### 2.2 Backoffice
 
-- [ ] Portal-Eingabeblatt unter `/admin/<id>/portal`: Felder in der Reihenfolge
+> **Erledigt 17.10.2026** (Migration `5_portal_eingabe`), bis auf den Rückmeldeweg.
+
+- [x] Portal-Eingabeblatt unter `/admin/<id>/portal`: Felder in der Reihenfolge
       aus `datensatz.ts`, je Feld ein Kopieren-Knopf, Abhaken pro Feld,
       Belegvorschau daneben.
-- [ ] Prüfprotokoll: je Wert die Herkunft (OCR, Kunde, berechnet) mit
+- [x] Prüfprotokoll: je Wert die Herkunft (OCR, Kunde, berechnet) mit
       OCR-Konfidenz, damit der Anwalt weiß, wo er hinschauen muss.
-- [ ] Statuswechsel „im Portal eingereicht" mit Eingangsnummer, als
+- [x] Statuswechsel „im Portal eingereicht" mit Eingangsnummer, als
       `AuditEvent`.
 - [ ] Rückmeldeweg für den Bescheid mit der Kanzlei abstimmen — Status,
       Folgejahres-Erinnerung und Rechnungsstellung hängen daran. Die Bescheide
@@ -584,23 +598,28 @@ enum VollmachtStatus { OFFEN ERTEILT CODE_EINGELOEST AKTIV ABGELAUFEN SCOPE_FALS
 
 ### 2.3 Folgejahre
 
-- [ ] Vorjahres-Kopie: Stammdaten, Lieferstellen und Portal-Vollmacht
+> **Erledigt 17.10.2026** (Migration `7_folgejahre`). Bewusst nicht kopiert werden die
+> Erklärungen (Triage, Beihilfe-Selbsterklärung) und Unterschriften: Das sind
+> Erklärungen je Verbrauchsjahr. Falls der Anwalt Übernahme mit Bestätigung für
+> zulässig hält, ist das eine kleine Änderung in `starteFolgejahr`.
+
+- [x] Vorjahres-Kopie: Stammdaten, Lieferstellen und Portal-Vollmacht
       übernehmen, nur Verbrauch und Beihilfe-Selbsterklärung neu abfragen.
       `istFolgejahr = true` setzen, damit `preisFuer` den Faktor anwendet.
-- [ ] Januar-Erinnerung an Bestandskunden als Cron.
+- [x] Januar-Erinnerung an Bestandskunden als Cron (`/api/cron/folgejahr-erinnerung`).
 
 ### 2.4 Aus der alten Liste übernommen
 
-- [ ] Dokumentenstatus pro Beleg — heute nur `belegFileKeys[]` ohne Metadaten.
-- [ ] Kontakthistorie am Mandanten — heute nur der technische Audit-Trail.
-- [ ] UI-Kit ist unverändertes shadcn-Skelett, Theme in
+- [x] Dokumentenstatus pro Beleg — heute nur `belegFileKeys[]` ohne Metadaten.
+- [x] Kontakthistorie am Mandanten (Migration `8_kontakte`) — heute nur der technische Audit-Trail.
+- [x] UI-Kit ist unverändertes shadcn-Skelett, Theme in
       `apps/web/src/app/globals.css` und `packages/config/tailwind/index.js` ist
       Default-Grau; Landing-Komponenten nutzen Ad-hoc-Farben wie `text-blue-700`.
       Eigene Markenfarbe fehlt.
-- [ ] Kein `public/` in `apps/web` — kein Logo, kein Favicon.
-- [ ] `components/landing/PartnerStrip.tsx` Zeile 5–6: Logos sind Text-Stubs.
-- [ ] Landingpage hat keinen Footer und kein FAQ.
-- [ ] Die zwei getrennten Rechnungen offen auf Website und im Angebot erklären.
+- [x] Kein `public/` in `apps/web` — kein Logo, kein Favicon.
+- [x] `components/landing/PartnerStrip.tsx` Zeile 5–6: Logos sind Text-Stubs.
+- [x] Landingpage hat keinen Footer und kein FAQ.
+- [x] Die zwei getrennten Rechnungen offen auf Website und im Angebot erklären.
       Ein Kunde, der die zweite Rechnung nicht erwartet, fühlt sich getäuscht,
       auch wenn alles korrekt war.
 - [ ] Rechtliche Platzhalter in Impressum, AGB, Datenschutz sowie in
@@ -611,12 +630,25 @@ enum VollmachtStatus { OFFEN ERTEILT CODE_EINGELOEST AKTIV ABGELAUFEN SCOPE_FALS
 ## 3. Live-Blocker
 
 - [ ] Finale Vertragstexte von der noch zu wählenden Kanzlei.
-- [ ] Supabase-Bucket `belege` privat + RLS. Stromrechnungen sind
-      personenbezogene Daten.
-- [ ] `ADMIN_PASSWORD` und `CRON_SECRET` in Produktion setzen.
-- [ ] Echte Kontaktadresse statt `info@example.de` in `config/brand.ts`.
+- [x] Supabase-Bucket `belege` privat + RLS. Stromrechnungen sind
+      personenbezogene Daten. **Erledigt 17.10.2026:** Beide Buckets sind privat. Bei
+      allen Tabellen war RLS aus und `anon`/`authenticated` hatten Rechte, die Daten
+      (IBAN, Steuernummer) waren damit über den öffentlichen anon-Key per REST lesbar.
+      Migration `9_rls_aktivieren` schaltet RLS ein und entzieht die Rechte; geprüft:
+      `anon` und `authenticated` werden abgewiesen, die App arbeitet unverändert.
+      Neue Tabellen brauchen dieselben zwei Zeilen (siehe `CLAUDE.md`).
+- [ ] `ADMIN_PASSWORD`, `CRON_SECRET` und `PORTAL_CODE_SECRET` in Produktion setzen
+      (Vercel-Umgebung; `PORTAL_CODE_SECRET` min. 16 zufällige Zeichen, nach dem
+      Setzen nicht mehr ändern, sonst sind gespeicherte Codes nicht lesbar).
+- [ ] Echte Kontaktadresse setzen. Sie kommt jetzt wie die Telefonnummer aus der
+      Umgebung (`NEXT_PUBLIC_CONTACT_EMAIL`), nicht mehr aus dem Code. Dazu in
+      Produktion `RESEND_FROM_EMAIL` (in Resend verifiziert) und `KANZLEI_EMAIL_INBOX`.
+      Ohne Wert zeigt die Seite den Platzhalter `[E-MAIL]`.
 - [ ] Ein vollständiger Testfall End-to-End, von der Kanzlei geprüft, bevor ein
       echter Antrag eingereicht wird.
+
+> Abnahme-Checkliste für die Kanzlei und die Liste aller offenen Punkte mit Zuständigen:
+> `docs/80-abnahme-und-offene-punkte.md`.
 
 ## 4. Nicht selbst bauen
 

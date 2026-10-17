@@ -1,3 +1,4 @@
+import { steuerberaterAnschreiben } from "@stromsteuer/api";
 import { prisma } from "@stromsteuer/db";
 import { Badge } from "@stromsteuer/ui/badge";
 import { Callout } from "@stromsteuer/ui/callout";
@@ -5,6 +6,8 @@ import { CalendarClock, Mail, Phone } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { Logo } from "@/components/brand/Logo";
+import { FolgejahrKarte } from "@/components/status/FolgejahrKarte";
+import { PortalOnboarding } from "@/components/status/PortalOnboarding";
 import {
   StatusTimeline,
   deriveTimeline,
@@ -13,6 +16,7 @@ import { BRAND } from "@/config/brand";
 import { formatDatum, stichtage } from "@/config/fristen";
 import { erstattungNachSelbstbehalt, formatEur } from "@/lib/format";
 import { statusMeta } from "@/lib/status";
+import { getServerCaller } from "@/server/trpc";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +32,17 @@ export default async function StatusPage({ params }: Props) {
   if (!application) {
     notFound();
   }
+
+  // Portal-Onboarding: nur nach Unterschrift beider Vertraege und solange
+  // der Antrag noch nicht beim Hauptzollamt ist.
+  const caller = await getServerCaller();
+  const zeigeOnboarding = application.status === "SIGNED" || application.status === "PENDING_REVIEW";
+
+  // Folgejahr: nach dem Einreichen kann der Kunde den naechsten Antrag aus dem Vorjahr starten.
+  const [onboarding, folgejahr] = await Promise.all([
+    zeigeOnboarding ? caller.portal.get({ token: params.token }) : Promise.resolve(null),
+    caller.folgejahr.angebot({ token: params.token }),
+  ]);
 
   const steps = deriveTimeline({
     status: application.status,
@@ -123,6 +138,27 @@ export default async function StatusPage({ params }: Props) {
               </p>
             ) : null}
           </section>
+
+          {onboarding ? (
+            <PortalOnboarding
+              token={params.token}
+              ansicht={onboarding}
+              kanzleiName={BRAND.kanzlei.name}
+              stbAnschreiben={steuerberaterAnschreiben({
+                kanzleiName: BRAND.kanzlei.name,
+                antragsjahr: onboarding.antragsjahr,
+              })}
+              kontakt={{ telefon: BRAND.phone, email: BRAND.email }}
+            />
+          ) : null}
+
+          {folgejahr.moeglich ? (
+            <FolgejahrKarte
+              token={params.token}
+              jahr={folgejahr.jahr}
+              frist={formatDatum(stichtage(folgejahr.jahr).ausschlussfrist)}
+            />
+          ) : null}
 
           <section className="flex flex-col gap-2 rounded-xl border border-border bg-card p-5 text-sm sm:flex-row sm:items-center sm:justify-between">
             <span className="text-muted-foreground">Fragen zu Ihrem Antrag?</span>

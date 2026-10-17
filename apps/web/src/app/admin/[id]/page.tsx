@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Building2,
   CheckCircle2,
+  ClipboardList,
   Download,
   ExternalLink,
   FileSpreadsheet,
@@ -18,7 +19,8 @@ import { Badge } from "@stromsteuer/ui/badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { adminSetPortalVollmachtAction } from "@/app/admin/actions";
+import { KontaktHistorie } from "@/components/admin/KontaktHistorie";
+import { PortalZugangKarte } from "@/components/admin/PortalZugangKarte";
 import { StatusActions } from "@/components/admin/StatusActions";
 import { formatEurRund } from "@/lib/format";
 import { statusMeta } from "@/lib/status";
@@ -89,6 +91,7 @@ export default async function AdminDetailPage({ params }: Props) {
   if (!app) {
     notFound();
   }
+  const kontakte = await caller.admin.kontakte({ id: params.id });
 
   const meta = statusMeta(app.status);
   const m = app.mandant;
@@ -408,48 +411,53 @@ export default async function AdminDetailPage({ params }: Props) {
           {/* Portal-Vollmacht */}
           <Card>
             <CardHeader icon={KeyRound} title="Vollmacht im Zoll-Portal" />
-            <form action={adminSetPortalVollmachtAction} className="space-y-2 text-sm">
-              <input type="hidden" name="id" value={app.id} />
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Status</span>
-                <select
-                  name="vollmachtStatus"
-                  defaultValue={vollmacht}
-                  className="block h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                >
-                  <option value="OFFEN">offen</option>
-                  <option value="ERTEILT">erteilt</option>
-                  <option value="CODE_EINGELOEST">Zugangscode eingelöst</option>
-                  <option value="AKTIV">aktiv, Umfang geprüft</option>
-                  <option value="SCOPE_FALSCH">falsche Dienstleistung gewählt</option>
-                  <option value="ABGELAUFEN">abgelaufen</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Beteiligten-Nummer</span>
-                <input
-                  name="beteiligtenNummer"
-                  defaultValue={m?.portalZugang?.beteiligtenNummer ?? ""}
-                  className="block h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={!m}
-                className="h-9 w-full rounded-md border border-input text-sm font-medium hover:bg-muted disabled:opacity-50"
-              >
-                Speichern
-              </button>
-              <p className="text-xs text-muted-foreground">
-                Dienstleistung muss „Sonstige steuerliche Anträge“ sein.
-              </p>
-            </form>
+            <PortalZugangKarte
+              antragId={app.id}
+              mandantVorhanden={Boolean(m)}
+              vollmachtStatus={vollmacht}
+              elsterStatus={m?.portalZugang?.elsterStatus ?? "UNBEKANNT"}
+              beteiligtenNummer={m?.portalZugang?.beteiligtenNummer ?? null}
+              codeVorhanden={Boolean(m?.portalZugang?.zugangscodeEnc)}
+              codeEingegangenAt={m?.portalZugang?.zugangscodeEingegangenAt?.toISOString() ?? null}
+              eskalationsstufe={m?.portalZugang?.eskalationsstufe ?? 0}
+              rueckrufAngefordertAt={m?.portalZugang?.rueckrufAngefordertAt?.toISOString() ?? null}
+              schritteErledigt={m?.portalZugang?.schritteErledigt ?? []}
+            />
+          </Card>
+
+          {/* Kontakthistorie */}
+          <Card>
+            <CardHeader icon={Mail} title={`Kontakte (${kontakte.length})`} />
+            <KontaktHistorie
+              antragId={app.id}
+              mandantVorhanden={Boolean(m)}
+              eintraege={kontakte.map((k) => ({
+                id: k.id,
+                kanal: k.kanal,
+                richtung: k.richtung,
+                betreff: k.betreff,
+                text: k.text,
+                automatisch: k.automatisch,
+                erstelltVon: k.erstelltVon,
+                createdAt: k.createdAt.toISOString(),
+              }))}
+            />
           </Card>
 
           {/* Downloads */}
           <Card>
             <CardHeader icon={Download} title="Downloads" />
             <div className="space-y-2 text-sm">
+              <a
+                href={`/admin/${app.id}/portal`}
+                className="flex items-center justify-between rounded-md border border-primary bg-primary/10 px-3 py-2 font-medium transition-colors hover:bg-primary/15"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <ClipboardList className="h-4 w-4 text-primary" />
+                  Portal-Eingabeblatt (Felder zum Übertragen)
+                </span>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </a>
               <a
                 href={`/admin/${app.id}/datenblatt`}
                 className="flex items-center justify-between rounded-md border border-primary/40 bg-primary/5 px-3 py-2 font-medium transition-colors hover:bg-primary/10"
@@ -517,6 +525,7 @@ export default async function AdminDetailPage({ params }: Props) {
           <StatusActions
             applicationId={app.id}
             currentStatus={app.status}
+            eingangsnummer={app.eingangsnummer}
           />
 
           {/* Timeline */}

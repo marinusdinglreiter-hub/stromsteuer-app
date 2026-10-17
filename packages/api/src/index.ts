@@ -69,6 +69,7 @@ export {
   generateKanzleiPaket,
   type KanzleiPaketInput,
 } from "./forms/kanzleiPaket";
+export { steuerberaterAnschreiben } from "./email/portal-templates";
 export {
   isEmailConfigured,
   sendMail,

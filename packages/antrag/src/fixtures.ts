@@ -93,6 +93,12 @@ export function portalZugang(over: Partial<PortalZugang> = {}): PortalZugang {
     eskalationsstufe: 0,
     letzteErinnerungAt: null,
     notizen: null,
+    schritteErledigt: [],
+    zugangscodeEnc: null,
+    zugangscodeEingegangenAt: null,
+    pausiertSeit: null,
+    pausierteTage: 0,
+    rueckrufAngefordertAt: null,
     ...over,
   };
 }
@@ -123,6 +129,7 @@ export function mandant(
     iban: "DE02120300000000202051",
     bic: "BYLADEM1001",
     unternehmensart: "PRODUZIERENDES_GEWERBE",
+    folgejahrErinnertFuer: null,
     createdAt: T0,
     updatedAt: T0,
     ...over,
@@ -179,6 +186,7 @@ export function antrag(over: Partial<AntragMitRelationen> = {}): AntragMitRelati
     kanzleimandatPdfKey: null,
     kanzleimandatPdfSha256: null,
     kanzleiPaketKey: null,
+    eingangsnummer: null,
     submittedAt: null,
     hzaDecisionAt: null,
     hzaAmount: null,

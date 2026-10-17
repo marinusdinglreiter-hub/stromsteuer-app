@@ -54,6 +54,23 @@ const schema = z.object({
   /** Shared Secret fuer den Cron-Endpoint (verhindert oeffentliches Trigger). */
   CRON_SECRET: z.string().optional(),
 
+  /**
+   * Schluessel fuer die Verschluesselung des Zugangscodes, den der Kunde auf
+   * der Status-Seite eingibt. Mindestens 16 Zeichen, zufaellig. Ohne Wert
+   * nimmt die App keinen Code entgegen (der Kunde schickt ihn dann der Kanzlei).
+   */
+  PORTAL_CODE_SECRET: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined))
+    .pipe(z.string().min(16).optional()),
+  /** Buchungslink fuer den gefuehrten Portal-Termin (z. B. Cal.com). Optional. */
+  TERMIN_URL: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined))
+    .pipe(z.string().url().optional()),
+
   /** Tage, nach denen unfertige Antraege automatisch geloescht werden. */
   DRAFT_TTL_DAYS: z.coerce.number().int().min(7).max(365).default(90),
 

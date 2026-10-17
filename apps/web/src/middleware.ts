@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { pruefeAdminAuth } from "@/server/admin-auth";
 import { rateLimit } from "@/server/rate-limit";
 
 /**
@@ -28,29 +29,14 @@ function clientIp(request: NextRequest): string {
  * der Zugriff erlaubt ist.
  */
 function adminAuth(request: NextRequest): NextResponse | null {
-  const username = process.env.ADMIN_USERNAME ?? "admin";
-  const password = process.env.ADMIN_PASSWORD;
+  const ergebnis = pruefeAdminAuth(request.headers.get("authorization"));
+  if (ergebnis === "ok") return null;
 
-  if (!password) {
+  if (ergebnis === "nicht-konfiguriert") {
     return new NextResponse(
       "Backoffice ist nicht konfiguriert. ADMIN_PASSWORD setzen.",
       { status: 503 },
     );
-  }
-
-  const header = request.headers.get("authorization");
-  if (header?.startsWith("Basic ")) {
-    try {
-      const decoded = atob(header.slice("Basic ".length));
-      const idx = decoded.indexOf(":");
-      const givenUser = decoded.slice(0, idx);
-      const givenPass = decoded.slice(idx + 1);
-      if (givenUser === username && givenPass === password) {
-        return null;
-      }
-    } catch {
-      // ignore — falle in 401
-    }
   }
 
   return new NextResponse("Authentifizierung erforderlich.", {
