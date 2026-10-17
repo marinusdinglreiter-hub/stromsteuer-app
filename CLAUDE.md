@@ -53,6 +53,14 @@ ELSTER-XML / befuelltes Formular 1453 (§ 9b ist seit 2025 online-pflichtig). Se
 /packages/config          ESLint, TS, Tailwind
 ```
 
+## Datenbank-Sicherheit
+
+- **Jede neue Tabelle bekommt in derselben Migration `ENABLE ROW LEVEL SECURITY` und keine Policy.**
+  Supabase stellt Tabellen im Schema `public` sonst unter dem oeffentlichen anon-Key per REST bereit
+  (Mandanten, IBANs, Belege). Die App liest und schreibt nur ueber Prisma (Rolle `postgres`) und den
+  Service-Role-Key, beide umgehen RLS. Siehe `9_rls_aktivieren`.
+- Zugangscodes fuers Zoll-Portal liegen nur verschluesselt (`PORTAL_CODE_SECRET`) und nur bis zum Einloesen.
+
 ## Coding-Konventionen
 
 - TypeScript strict, kein `any`

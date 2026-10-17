@@ -10,7 +10,8 @@ export const BRAND = {
   shortName: "Stromsteuer",
   // Echte Nummer nur ueber die Umgebung (Vercel/.env), nicht im Repo.
   phone: process.env.NEXT_PUBLIC_CONTACT_PHONE ?? "[TELEFON]",
-  email: "info@example.de",
+  // Echte Adresse nur ueber die Umgebung (Vercel/.env), wie die Telefonnummer.
+  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "[E-MAIL]",
   kanzlei: {
     name: "[KANZLEI]",
     anwalt: "[ANSPRECHPARTNER KANZLEI]",
