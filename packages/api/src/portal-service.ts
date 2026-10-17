@@ -12,6 +12,7 @@ import { tryLogAudit } from "./audit";
 import { sendMail } from "./email/client";
 import { renderPortalErinnerung, type PortalMailInput } from "./email/portal-templates";
 import { env } from "./env";
+import { logMailAnKunde } from "./kontakt-service";
 
 export type BrandInfo = { name: string; shortName: string; kanzleiName: string };
 
@@ -116,6 +117,7 @@ export async function sendeErinnerungen(brand: BrandInfo, jetzt: Date = new Date
       create: { mandantId: k.mandantId!, eskalationsstufe: stufe, letzteErinnerungAt: jetzt },
       update: { eskalationsstufe: stufe, letzteErinnerungAt: jetzt },
     });
+    await logMailAnKunde(k.mandantId, k.id, mail.subject);
     await tryLogAudit({
       antragId: k.id,
       type: "PORTAL_ERINNERUNG",

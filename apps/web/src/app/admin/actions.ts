@@ -111,6 +111,24 @@ export async function adminZugangscodeEingeloestAction(id: string): Promise<Admi
   return { ok: true };
 }
 
+/** Telefonat, Mail oder Notiz in der Kontakthistorie erfassen. */
+export async function adminKontaktErfassenAction(input: {
+  id: string;
+  kanal: "EMAIL" | "TELEFON" | "NOTIZ" | "PORTAL";
+  richtung: "AUSGEHEND" | "EINGEHEND" | "INTERN";
+  betreff: string;
+  text?: string;
+}): Promise<AdminActionResult> {
+  try {
+    const caller = await getAdminServerCaller();
+    await caller.admin.kontaktErfassen(input);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." };
+  }
+  revalidatePath(`/admin/${input.id}`);
+  return { ok: true };
+}
+
 export async function adminExpireDraftsAction(): Promise<
   AdminActionResult & { stats?: Awaited<ReturnType<typeof callExpire>> }
 > {

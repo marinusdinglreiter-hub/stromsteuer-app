@@ -52,6 +52,8 @@ model Mandant {
   /// Verbrauchsjahr, fuer das die Januar-Erinnerung zum Folgejahr schon raus ist
   folgejahrErinnertFuer Int?
 
+  kontakte Kontakt[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -197,6 +199,40 @@ model Lieferstelle {
 /// Eine hochgeladene Rechnung mit den daraus gelesenen Werten. Die Felder an
 /// der Lieferstelle (Menge, Zeitraum, Stromsteuer) sind die Summe ueber ihre
 /// Belege, solange der Kunde die Menge nicht von Hand geaendert hat.
+enum KontaktKanal {
+  EMAIL
+  TELEFON
+  NOTIZ
+  PORTAL
+}
+
+enum KontaktRichtung {
+  AUSGEHEND
+  EINGEHEND
+  INTERN
+}
+
+/// Kontakthistorie am Mandanten: Mails, Telefonate und Notizen in einer Zeitleiste.
+/// Der technische Audit-Trail (AuditEvent) bleibt davon getrennt und unveraenderlich;
+/// Kontakte darf die Kanzlei ergaenzen.
+model Kontakt {
+  id          String          @id @default(cuid())
+  mandant     Mandant         @relation(fields: [mandantId], references: [id], onDelete: Cascade)
+  mandantId   String
+  /// Bezug zu einem Verbrauchsjahr-Antrag, falls vorhanden
+  antragId    String?
+  kanal       KontaktKanal
+  richtung    KontaktRichtung
+  betreff     String
+  text        String?
+  /// true = vom System erzeugt (Erinnerungen, Status-Mails)
+  automatisch Boolean         @default(false)
+  erstelltVon String?
+  createdAt   DateTime        @default(now())
+
+  @@index([mandantId, createdAt])
+}
+
 /// Abgehakte Felder im Portal-Eingabeblatt der Kanzlei (/admin/<id>/portal).
 model PortalFeld {
   id         String   @id @default(cuid())

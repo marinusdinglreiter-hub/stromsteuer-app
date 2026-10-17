@@ -12,6 +12,7 @@ import { logAudit, tryLogAudit } from "./audit";
 import { sendMail } from "./email/client";
 import { renderFolgejahrErinnerung } from "./email/folgejahr-templates";
 import { env } from "./env";
+import { logMailAnKunde } from "./kontakt-service";
 import { datumDe, type BrandInfo } from "./portal-service";
 
 /** Wie lange ein neuer Antrags-Datensatz lebt (gleiche Frist wie beim ersten Antrag). */
@@ -177,6 +178,7 @@ export async function sendeFolgejahrErinnerungen(
       continue;
     }
     await prisma.mandant.update({ where: { id: m.id }, data: { folgejahrErinnertFuer: angebot.jahr } });
+    await logMailAnKunde(m.id, juengster.id, mail.subject);
     await tryLogAudit({
       antragId: juengster.id,
       type: "FOLGEJAHR_ERINNERUNG",

@@ -14,6 +14,7 @@ import { STROMSTEUER_REGELSATZ_EUR_PRO_MWH } from "../calc/rates";
 import { sendMail } from "../email/client";
 import { renderVollmachtAktiv } from "../email/portal-templates";
 import { datensatzFuer } from "../forms/datenblatt";
+import { logMailAnKunde } from "../kontakt-service";
 import { portalMailInput, sendeErinnerungen } from "../portal-service";
 import { decryptSecret } from "../secrets";
 import {
@@ -340,13 +341,14 @@ export const adminRouter = router({
         if (email) {
           const mail = renderVollmachtAktiv(mailInput);
           try {
-            await sendMail({
+            const res = await sendMail({
               to: email,
               subject: mail.subject,
               html: mail.html,
               text: mail.text,
               replyTo: env().KANZLEI_EMAIL_INBOX,
             });
+            if (res.ok) await logMailAnKunde(antrag.mandantId, input.id, mail.subject);
           } catch (err) {
             console.warn("[admin.setPortalVollmacht] Mail fehlgeschlagen:", err);
           }
@@ -407,6 +409,47 @@ export const adminRouter = router({
         await logAudit({ antragId: input.id, type: "PORTAL_CODE_EINGELOEST", actor: "KANZLEI" }, tx);
       });
       return { ok: true };
+    }),
+
+  /** Kontakthistorie des Mandanten, neueste zuerst. */
+  kontakte: adminProcedure.input(z.object({ id: z.string().min(1) })).query(async ({ input }) => {
+    const antrag = await prisma.antrag.findUnique({ where: { id: input.id }, select: { mandantId: true } });
+    if (!antrag?.mandantId) return [];
+    return prisma.kontakt.findMany({
+      where: { mandantId: antrag.mandantId },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+  }),
+
+  /** Telefonat, Mail oder Notiz von Hand erfassen. */
+  kontaktErfassen: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        kanal: z.enum(["EMAIL", "TELEFON", "NOTIZ", "PORTAL"]),
+        richtung: z.enum(["AUSGEHEND", "EINGEHEND", "INTERN"]),
+        betreff: z.string().trim().min(2, "Bitte einen Betreff eintragen.").max(300),
+        text: z.string().trim().max(5000).optional(),
+        von: z.string().trim().max(120).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const antrag = await prisma.antrag.findUnique({ where: { id: input.id }, select: { mandantId: true } });
+      if (!antrag?.mandantId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Antrag hat noch keinen Mandanten." });
+      }
+      return prisma.kontakt.create({
+        data: {
+          mandantId: antrag.mandantId,
+          antragId: input.id,
+          kanal: input.kanal,
+          richtung: input.richtung,
+          betreff: input.betreff,
+          text: input.text || null,
+          erstelltVon: input.von ?? "Kanzlei",
+        },
+      });
     }),
 
   /** Taeglicher Lauf (Cron): verschickt faellige Erinnerungen zum Portal-Zugang. */
@@ -523,13 +566,14 @@ export const adminRouter = router({
                 ? "Erstattung ausgezahlt"
                 : "Bescheid: Antrag abgelehnt";
         try {
-          await sendMail({
+          const res = await sendMail({
             to: kundenEmail,
             subject,
             html: tpl.html,
             text: tpl.text,
             replyTo: e.KANZLEI_EMAIL_INBOX,
           });
+          if (res.ok) await logMailAnKunde(updated.mandantId, input.id, subject);
         } catch (err) {
           console.warn("[admin.updateStatus] Mail-Versand fehlgeschlagen:", err);
         }

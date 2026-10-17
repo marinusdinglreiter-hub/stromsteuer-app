@@ -18,6 +18,7 @@ import { z } from "zod";
 import { logAudit } from "../audit";
 import { sendMail } from "../email/client";
 import { env } from "../env";
+import { logKontakt } from "../kontakt-service";
 import { encryptSecret } from "../secrets";
 import { publicProcedure, router } from "../trpc";
 
@@ -201,6 +202,14 @@ export const portalRouter = router({
           tx,
         );
       });
+      await logKontakt({
+        mandantId: k.mandantId,
+        antragId: k.antrag.id,
+        kanal: "PORTAL",
+        richtung: "EINGEHEND",
+        betreff: "Zugangscode für das Zoll-Portal übermittelt",
+        automatisch: true,
+      });
       await benachrichtigeKanzlei(
         `Zugangscode eingegangen: ${k.antrag.mandant?.firmenname ?? ""}`,
         `Der Kunde hat den Zugangscode für das Zoll-Portal eingegeben. Bitte im Backoffice einlösen und die Vollmacht prüfen:\n${env().APP_BASE_URL}/admin/${k.antrag.id}`,
@@ -219,6 +228,14 @@ export const portalRouter = router({
         update: { rueckrufAngefordertAt: jetzt },
       });
       await logAudit({ antragId: k.antrag.id, type: "PORTAL_RUECKRUF", actor: "CUSTOMER" }, tx);
+    });
+    await logKontakt({
+      mandantId: k.mandantId,
+      antragId: k.antrag.id,
+      kanal: "TELEFON",
+      richtung: "EINGEHEND",
+      betreff: "Rückruf zum Portal-Zugang gewünscht",
+      automatisch: true,
     });
     await benachrichtigeKanzlei(
       `Rückruf gewünscht: ${k.antrag.mandant?.firmenname ?? ""}`,

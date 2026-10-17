@@ -19,6 +19,7 @@ import { Badge } from "@stromsteuer/ui/badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { KontaktHistorie } from "@/components/admin/KontaktHistorie";
 import { PortalZugangKarte } from "@/components/admin/PortalZugangKarte";
 import { StatusActions } from "@/components/admin/StatusActions";
 import { formatEurRund } from "@/lib/format";
@@ -90,6 +91,7 @@ export default async function AdminDetailPage({ params }: Props) {
   if (!app) {
     notFound();
   }
+  const kontakte = await caller.admin.kontakte({ id: params.id });
 
   const meta = statusMeta(app.status);
   const m = app.mandant;
@@ -420,6 +422,25 @@ export default async function AdminDetailPage({ params }: Props) {
               eskalationsstufe={m?.portalZugang?.eskalationsstufe ?? 0}
               rueckrufAngefordertAt={m?.portalZugang?.rueckrufAngefordertAt?.toISOString() ?? null}
               schritteErledigt={m?.portalZugang?.schritteErledigt ?? []}
+            />
+          </Card>
+
+          {/* Kontakthistorie */}
+          <Card>
+            <CardHeader icon={Mail} title={`Kontakte (${kontakte.length})`} />
+            <KontaktHistorie
+              antragId={app.id}
+              mandantVorhanden={Boolean(m)}
+              eintraege={kontakte.map((k) => ({
+                id: k.id,
+                kanal: k.kanal,
+                richtung: k.richtung,
+                betreff: k.betreff,
+                text: k.text,
+                automatisch: k.automatisch,
+                erstelltVon: k.erstelltVon,
+                createdAt: k.createdAt.toISOString(),
+              }))}
             />
           </Card>
 

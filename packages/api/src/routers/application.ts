@@ -33,6 +33,7 @@ import {
   getGeneratedDownloadUrl,
   uploadGenerated,
 } from "../storage/supabase";
+import { logMailAnKunde } from "../kontakt-service";
 import { applicationProcedure, publicProcedure, router } from "../trpc";
 
 /** 30 Tage Lebensdauer fuer den Antrags-Datensatz. */
@@ -722,6 +723,8 @@ export const applicationRouter = router({
 
       if (customerResult.status === "rejected") {
         console.warn("[submit] Kunden-Mail fehlgeschlagen:", customerResult.reason);
+      } else if (customerResult.value.ok) {
+        await logMailAnKunde(antrag.mandantId, antrag.id, "Ihr § 9b-Antrag ist eingegangen");
       }
       if (kanzleiResult.status === "rejected") {
         console.warn("[submit] Kanzlei-Mail fehlgeschlagen:", kanzleiResult.reason);
