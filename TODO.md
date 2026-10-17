@@ -85,7 +85,8 @@ Akzeptanz: alles grün. Wenn nicht, hier stoppen und melden, nichts weiterbauen.
 
 > **Blockiert (08.10.2026):** Die Supabase-Datenbank ist nicht erreichbar
 > (`tenant/user … not found`, Projekt vermutlich pausiert). Im Supabase-Dashboard fortsetzen, dann `0_init` bis
-> `3_mandant_bankverbindung_mengen` deployen.
+> `4_beleg` deployen. Am 17.10.2026 weiterhin nicht erreichbar (DNS des
+> Projekts löst nicht auf).
 
 - [ ] `pnpm --filter @stromsteuer/db exec prisma migrate deploy`
 - [ ] Falls die Tabellen per `db push` schon existieren, schlägt das fehl. Dann:
