@@ -9,6 +9,7 @@
  * herein; hier werden nur Mengen auf die Spalten verteilt und formatiert.
  */
 
+import { pruefeLieferstelle, type Hinweis } from "./belege";
 import type { AntragMitRelationen } from "./types";
 
 export type Herkunft = "kunde" | "ocr" | "berechnet" | "kanzlei" | "fest";
@@ -58,6 +59,23 @@ export type LieferstelleZeile = {
   stromsteuerGezahltEur: number | null;
   belege: number;
   ocrConfidence: number | null;
+  zaehlpunkt: string;
+  /** Pruefprotokoll aus `pruefeLieferstelle` */
+  hinweise: Hinweis[];
+};
+
+export type BelegZeile = {
+  lieferstelleNr: number;
+  dateiname: string;
+  zeitraum: string;
+  kwh: number | null;
+  stromsteuerEur: number | null;
+  /** Stromsteuer je MWh laut Beleg, zur Plausibilisierung */
+  eurProMwh: number | null;
+  versorger: string;
+  zaehlpunkt: string;
+  ocrConfidence: number | null;
+  extraktion: string;
 };
 
 export type Antragsdatensatz = {
@@ -66,6 +84,12 @@ export type Antragsdatensatz = {
   felder: DatensatzFeld[];
   tabelle: BerechnungsTabelle;
   lieferstellen: LieferstelleZeile[];
+  belege: BelegZeile[];
+};
+
+export type DatensatzOptionen = {
+  /** Regelsteuersatz EUR/MWh fuer die Plausibilitaetspruefung der Belege */
+  regelsatzEurProMwh?: number;
 };
 
 const ENTLASTUNGSABSCHNITT_LABEL = {
@@ -103,6 +127,7 @@ export function erzeugeDatensatz(
   antrag: AntragMitRelationen,
   berechnung: BerechnungEingabe,
   erzeugtAm: Date = new Date(),
+  opts: DatensatzOptionen = {},
 ): Antragsdatensatz {
   const m = antrag.mandant;
   const felder: DatensatzFeld[] = [];
@@ -227,7 +252,30 @@ export function erzeugeDatensatz(
     stromsteuerGezahltEur: l.stromsteuerGezahltEur === null ? null : Number(l.stromsteuerGezahltEur),
     belege: l.belegFileKeys.length,
     ocrConfidence: l.ocrConfidence,
+    zaehlpunkt: [...new Set(l.belege.map((b) => b.zaehlpunkt).filter(Boolean))].join(", "),
+    hinweise: pruefeLieferstelle(l, {
+      antragsjahr: antrag.antragsjahr,
+      regelsatzEurProMwh: opts.regelsatzEurProMwh,
+    }),
   }));
 
-  return { antragId: antrag.id, erzeugtAm, felder, tabelle, lieferstellen };
+  const belege: BelegZeile[] = antrag.lieferstellen.flatMap((l, i) =>
+    l.belege.map((b) => {
+      const steuer = b.stromsteuerEur === null ? null : Number(b.stromsteuerEur);
+      return {
+        lieferstelleNr: i + 1,
+        dateiname: b.dateiname,
+        zeitraum: b.zeitraumVon || b.zeitraumBis ? `${datum(b.zeitraumVon)} – ${datum(b.zeitraumBis)}` : "",
+        kwh: b.kwh,
+        stromsteuerEur: steuer,
+        eurProMwh: steuer !== null && b.kwh ? Math.round((steuer / (b.kwh / 1000)) * 100) / 100 : null,
+        versorger: b.versorger ?? "",
+        zaehlpunkt: b.zaehlpunkt ?? "",
+        ocrConfidence: b.ocrConfidence,
+        extraktion: b.extraktion,
+      };
+    }),
+  );
+
+  return { antragId: antrag.id, erzeugtAm, felder, tabelle, lieferstellen, belege };
 }

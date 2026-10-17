@@ -14,11 +14,24 @@ export {
   formatMwh,
   type Antragsdatensatz,
   type BerechnungEingabe,
+  type BelegZeile,
   type BerechnungsTabelle,
+  type DatensatzOptionen,
   type DatensatzFeld,
   type Herkunft,
   type LieferstelleZeile,
 } from "./datensatz";
+export {
+  aggregiereBelege,
+  mengeNachBeleg,
+  OCR_PRUEFSCHWELLE,
+  pruefeLieferstelle,
+  type BelegAggregat,
+  type BelegWerte,
+  type Hinweis,
+  type LieferstelleMitBelegen,
+  type PruefOptionen,
+} from "./belege";
 export {
   vorpruefung,
   type VorpruefungEingabe,

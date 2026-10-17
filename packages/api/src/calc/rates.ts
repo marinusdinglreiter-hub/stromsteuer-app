@@ -14,6 +14,13 @@ export type EntlastungsSatz = {
   quelle: string;
 };
 
+/**
+ * Regelsteuersatz der Stromsteuer (§ 3 StromStG), wie er auf Rechnungen
+ * ausgewiesen wird. Nur fuer die Plausibilitaetspruefung der Belege.
+ * Quelle: Anleitung Formular 1453.
+ */
+export const STROMSTEUER_REGELSATZ_EUR_PRO_MWH = 20.5;
+
 /** Absteigend nach gueltigAbJahr sortiert. */
 export const ENTLASTUNGS_SAETZE: EntlastungsSatz[] = [
   {
