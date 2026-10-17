@@ -69,7 +69,12 @@ export type ErinnerungsStatistik = {
  * Mail-Konfiguration oder bei Fehlern wird sie beim naechsten Lauf erneut
  * versucht.
  */
-export async function sendeErinnerungen(brand: BrandInfo, jetzt: Date = new Date()): Promise<ErinnerungsStatistik> {
+export async function sendeErinnerungen(
+  brand: BrandInfo,
+  jetzt: Date = new Date(),
+  /** Nur diese Antraege pruefen (gezielte Laeufe, Integrationstests); Standard: alle */
+  nurAntraege?: string[],
+): Promise<ErinnerungsStatistik> {
   const stats: ErinnerungsStatistik = {
     geprueft: 0,
     gesendet: 0,
@@ -81,6 +86,7 @@ export async function sendeErinnerungen(brand: BrandInfo, jetzt: Date = new Date
 
   const kandidaten = await prisma.antrag.findMany({
     where: {
+      ...(nurAntraege ? { id: { in: nurAntraege } } : {}),
       status: { in: ["SIGNED", "PENDING_REVIEW"] },
       kanzleimandatSignedAt: { not: null },
       mandantId: { not: null },

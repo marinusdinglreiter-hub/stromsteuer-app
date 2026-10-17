@@ -283,7 +283,10 @@ export const adminRouter = router({
       }
       const alt = antrag.mandant?.portalZugang ?? null;
       const aktiv = input.vollmachtStatus === "AKTIV";
-      if (aktiv && !(input.scopeGeprueft && input.bescheidZustellungAktiv)) {
+      const erstAktivierung = aktiv && alt?.vollmachtStatus !== "AKTIV";
+      // Die Pruefung gehoert zur ersten Aktivierung. Spaetere Korrekturen (z. B. der
+      // Beteiligten-Nummer) verlangen sie nicht erneut und ueberschreiben den Nachweis nicht.
+      if (erstAktivierung && !(input.scopeGeprueft && input.bescheidZustellungAktiv)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
@@ -312,7 +315,7 @@ export const adminRouter = router({
         ...(input.vollmachtStatus === "CODE_EINGELOEST" && !alt?.zugangscodeEingeloestAt
           ? { zugangscodeEingeloestAt: jetzt }
           : {}),
-        ...(aktiv
+        ...(erstAktivierung
           ? {
               scopeGeprueftAt: jetzt,
               scopeGeprueftVon: input.geprueftVon ?? "Kanzlei",
@@ -336,7 +339,7 @@ export const adminRouter = router({
       });
 
       // Wird aktiv: Kunde erfaehrt es (inkl. Hinweis auf die Bescheid-Zustellung).
-      if (aktiv && alt?.vollmachtStatus !== "AKTIV" && input.brand) {
+      if (erstAktivierung && input.brand) {
         const { input: mailInput, email } = await portalMailInput(input.id, input.brand);
         if (email) {
           const mail = renderVollmachtAktiv(mailInput);

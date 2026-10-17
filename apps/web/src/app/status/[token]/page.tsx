@@ -35,13 +35,14 @@ export default async function StatusPage({ params }: Props) {
 
   // Portal-Onboarding: nur nach Unterschrift beider Vertraege und solange
   // der Antrag noch nicht beim Hauptzollamt ist.
-  const onboarding =
-    application.status === "SIGNED" || application.status === "PENDING_REVIEW"
-      ? await (await getServerCaller()).portal.get({ token: params.token })
-      : null;
+  const caller = await getServerCaller();
+  const zeigeOnboarding = application.status === "SIGNED" || application.status === "PENDING_REVIEW";
 
   // Folgejahr: nach dem Einreichen kann der Kunde den naechsten Antrag aus dem Vorjahr starten.
-  const folgejahr = await (await getServerCaller()).folgejahr.angebot({ token: params.token });
+  const [onboarding, folgejahr] = await Promise.all([
+    zeigeOnboarding ? caller.portal.get({ token: params.token }) : Promise.resolve(null),
+    caller.folgejahr.angebot({ token: params.token }),
+  ]);
 
   const steps = deriveTimeline({
     status: application.status,

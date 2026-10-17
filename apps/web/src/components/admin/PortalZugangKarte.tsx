@@ -74,8 +74,9 @@ export function PortalZugangKarte(props: Props) {
   const [code, setCode] = useState<{ code: string; nummer: string | null } | null>(null);
   const [kopiert, setKopiert] = useState<string | null>(null);
 
-  const aktiv = status === "AKTIV";
-  const speichernGesperrt = !props.mandantVorhanden || (aktiv && !(scope && bescheid));
+  // Die Pruefung verlangt nur der Wechsel auf "aktiv"; spaetere Korrekturen nicht.
+  const pruefungNoetig = status === "AKTIV" && props.vollmachtStatus !== "AKTIV";
+  const speichernGesperrt = !props.mandantVorhanden || (pruefungNoetig && !(scope && bescheid));
 
   function speichern() {
     setMeldung(null);
@@ -232,7 +233,7 @@ export function PortalZugangKarte(props: Props) {
         />
       </label>
 
-      {aktiv ? (
+      {pruefungNoetig ? (
         <fieldset className="space-y-1.5 rounded-md border border-warning/40 bg-warning-soft/50 p-3">
           <legend className="px-1 text-xs font-medium">Vor „aktiv“ bitte im Portal prüfen</legend>
           <label className="flex items-start gap-2 text-xs">

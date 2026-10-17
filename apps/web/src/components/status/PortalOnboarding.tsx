@@ -68,6 +68,13 @@ export function PortalOnboarding({ token, ansicht, kanzleiName, stbAnschreiben, 
 
   const { phase } = ansicht;
   const fertig = phase === "AKTIV";
+  // Anleitung und Code-Formular: wenn ein Zertifikat da ist, und immer, wenn der Kunde
+  // einen neuen Code erzeugen muss (falsche Dienstleistung, abgelaufener Code).
+  const zeigeAnleitung =
+    ansicht.elsterStatus === "VORHANDEN" ||
+    ansicht.elsterStatus === "BEIM_STB" ||
+    phase === "SCOPE_FALSCH" ||
+    phase === "ABGELAUFEN";
   const erledigt = new Set(ansicht.schritteErledigt);
 
   function ausfuehren(aktion: () => Promise<PortalActionResult>, onOk?: () => void) {
@@ -249,7 +256,7 @@ export function PortalOnboarding({ token, ansicht, kanzleiName, stbAnschreiben, 
           </div>
 
           {/* Anleitung */}
-          {ansicht.elsterStatus === "VORHANDEN" || ansicht.elsterStatus === "BEIM_STB" ? (
+          {zeigeAnleitung ? (
             <div className="mt-8">
               <h3 className="text-sm font-semibold">
                 Die fünf Schritte im Portal <span className="font-normal text-muted-foreground">(zusammen etwa {GESAMT_MINUTEN} Minuten)</span>
@@ -323,7 +330,7 @@ export function PortalOnboarding({ token, ansicht, kanzleiName, stbAnschreiben, 
           ) : null}
 
           {/* Code */}
-          {ansicht.elsterStatus === "VORHANDEN" || ansicht.elsterStatus === "BEIM_STB" ? (
+          {zeigeAnleitung ? (
             <div className="mt-8">
               <h3 className="flex items-center gap-1.5 text-sm font-semibold">
                 <KeyRound className="h-4 w-4" aria-hidden />

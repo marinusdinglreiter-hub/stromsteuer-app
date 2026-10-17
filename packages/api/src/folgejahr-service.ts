@@ -5,7 +5,7 @@
 import { randomBytes } from "node:crypto";
 
 import { istJanuar, pruefeFolgejahr, type FolgejahrErgebnis } from "@stromsteuer/antrag";
-import { prisma, type AntragStatus } from "@stromsteuer/db";
+import { prisma, type AntragStatus, type Prisma } from "@stromsteuer/db";
 import { TRPCError } from "@trpc/server";
 
 import { logAudit, tryLogAudit } from "./audit";
@@ -20,9 +20,11 @@ const ANTRAG_TTL_DAYS = 30;
 
 const EINGEREICHT: AntragStatus[] = ["SUBMITTED", "APPROVED", "PAID"];
 
+type Db = typeof prisma | Prisma.TransactionClient;
+
 /** Verbrauchsjahre, fuer die der Mandant schon einen nicht abgelaufenen Antrag hat. */
-async function vorhandeneJahre(mandantId: string): Promise<number[]> {
-  const antraege = await prisma.antrag.findMany({
+async function vorhandeneJahre(mandantId: string, db: Db = prisma): Promise<number[]> {
+  const antraege = await db.antrag.findMany({
     where: { mandantId, status: { not: "EXPIRED" }, antragsjahr: { not: null } },
     select: { antragsjahr: true },
   });
@@ -73,6 +75,18 @@ export async function starteFolgejahr(
 
   const sessionToken = randomBytes(32).toString("base64url");
   const neu = await prisma.$transaction(async (tx) => {
+    // Gleichzeitige Starts (Doppelklick, zwei Tabs) hintereinander abarbeiten: Mandanten-Zeile
+    // sperren und die vorhandenen Jahre erst danach pruefen. Es gibt keinen Unique-Constraint
+    // auf (Mandant, Jahr), weil abgelaufene Entwuerfe dasselbe Jahr haben duerfen.
+    if (vorjahr.mandantId) {
+      await tx.$queryRaw`SELECT "id" FROM "Mandant" WHERE "id" = ${vorjahr.mandantId} FOR UPDATE`;
+      if ((await vorhandeneJahre(vorjahr.mandantId, tx)).includes(angebot.jahr)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Für dieses Verbrauchsjahr gibt es bereits einen Antrag.",
+        });
+      }
+    }
     const antrag = await tx.antrag.create({
       data: {
         sessionToken,

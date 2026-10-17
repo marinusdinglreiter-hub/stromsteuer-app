@@ -92,9 +92,15 @@ describe("Erinnerungen (Tag 2, 5, 10, 14 ab Vertragsunterschrift)", () => {
     expect(faelligeErinnerung(T0, nachTagen(2), zugang({ elsterStatus: "BEIM_STB" }))).toBe(1);
   });
 
-  it("bereits eingeloeste oder aktive Vollmacht: keine Erinnerung mehr", () => {
-    expect(faelligeErinnerung(T0, nachTagen(20), zugang({ vollmachtStatus: "CODE_EINGELOEST" }))).toBeNull();
-    expect(faelligeErinnerung(T0, nachTagen(20), zugang({ vollmachtStatus: "AKTIV" }))).toBeNull();
+  it("Code eingereicht, eingeloest oder aktiv: keine Erinnerung mehr", () => {
+    for (const vollmachtStatus of ["ERTEILT", "CODE_EINGELOEST", "AKTIV"] as const) {
+      expect(faelligeErinnerung(T0, nachTagen(20), zugang({ vollmachtStatus }))).toBeNull();
+    }
+  });
+
+  it("falsche Dienstleistung oder abgelaufener Code: Erinnerung geht weiter", () => {
+    expect(faelligeErinnerung(T0, nachTagen(5), zugang({ vollmachtStatus: "SCOPE_FALSCH", eskalationsstufe: 1 }))).toBe(2);
+    expect(faelligeErinnerung(T0, nachTagen(5), zugang({ vollmachtStatus: "ABGELAUFEN", eskalationsstufe: 1 }))).toBe(2);
   });
 
   it("Pausenzeit wird abgezogen", () => {

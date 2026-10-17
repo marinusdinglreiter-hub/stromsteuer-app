@@ -139,8 +139,8 @@ export type ErinnerungsStufe = 1 | 2 | 3 | 4;
 /**
  * Welche Erinnerung ist jetzt faellig? Hoechstens eine, und zwar die
  * hoechste erreichte Stufe, die noch nicht verschickt wurde. Nichts mehr,
- * sobald der Code eingeloest ist (dann ist die Kanzlei am Zug) oder im
- * Wartezustand auf die Post.
+ * sobald der Kunde den Code eingereicht hat (dann ist die Kanzlei am Zug) oder
+ * im Wartezustand auf die Post.
  */
 export function faelligeErinnerung(
   signedAt: Date,
@@ -148,7 +148,8 @@ export function faelligeErinnerung(
   z: OnboardingZugang | null,
 ): ErinnerungsStufe | null {
   const zugang = z ?? NEUER_ZUGANG;
-  if (zugang.vollmachtStatus === "AKTIV" || zugang.vollmachtStatus === "CODE_EINGELOEST") return null;
+  // Hat der Kunde den Code eingereicht (ERTEILT), ist die Kanzlei am Zug, nicht er.
+  if (["ERTEILT", "CODE_EINGELOEST", "AKTIV"].includes(zugang.vollmachtStatus)) return null;
   if (istPausiert(zugang)) return null;
   const tage = wirksameTage(signedAt, jetzt, zugang);
   let stufe = 0;
