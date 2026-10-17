@@ -688,6 +688,9 @@ Anwalt:
 - [ ] Ist die Empfehlung der Kanzlei unbedenklich, solange in keine Richtung Geld
       für die Zuführung fließt?
 
+> Alle Fragen dieses Abschnitts mit Folgen für den Code und Platz für die Antworten:
+> `docs/81-fragenkatalog.md`.
+
 ## Formularsatz zur Orientierung
 
 | Nr. | Inhalt | Rolle |
