@@ -180,11 +180,43 @@ model Lieferstelle {
 
   belegFileKeys String[] // Supabase Storage Keys
   ocrConfidence Float?
+  belege        Beleg[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([antragId])
+}
+
+/// Eine hochgeladene Rechnung mit den daraus gelesenen Werten. Die Felder an
+/// der Lieferstelle (Menge, Zeitraum, Stromsteuer) sind die Summe ueber ihre
+/// Belege, solange der Kunde die Menge nicht von Hand geaendert hat.
+model Beleg {
+  id             String       @id @default(cuid())
+  lieferstelle   Lieferstelle @relation(fields: [lieferstelleId], references: [id], onDelete: Cascade)
+  lieferstelleId String
+  /// Antrag doppelt gefuehrt, damit die Duplikatpruefung ohne Join auskommt
+  antragId       String
+
+  storageKey String @unique
+  dateiname  String
+  sha256     String
+
+  kwh            Int?
+  zeitraumVon    DateTime?
+  zeitraumBis    DateTime?
+  stromsteuerEur Decimal?  @db.Decimal(12, 2)
+  versorger      String?
+  adresse        String?
+  zaehlpunkt     String?
+  ocrConfidence  Float?
+  /// textract | pdf-lokal | keine
+  extraktion     String
+
+  createdAt DateTime @default(now())
+
+  @@unique([antragId, sha256])
+  @@index([lieferstelleId])
 }
 
 model NutzenergieEmpfaenger {
@@ -288,4 +320,5 @@ enum AuditEventType {
   AUFBEREITUNG_SIGNED
   KANZLEIMANDAT_SIGNED
   DATENBLATT_ERZEUGT
+  BELEG_ERFASST
 }

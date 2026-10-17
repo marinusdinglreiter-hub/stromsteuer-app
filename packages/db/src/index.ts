@@ -23,6 +23,7 @@ export type {
   AuditEvent,
   AuditActor,
   AuditEventType,
+  Beleg,
   BeschreibungStatus,
   Entlastungsabschnitt,
   Lieferstelle,
