@@ -222,3 +222,122 @@ describe("parseStromrechnung — Stromsteuer mit EUR statt Euro-Zeichen", () => 
     expect(result.stromsteuerGezahlt).toBe(1435);
   });
 });
+
+// ------------------------------------------------------------
+// Praxisfall: Schlussrechnung eines Energieversorgers ueber 12,5 Monate
+// (01.02.2025 - 21.02.2026), 28.550 kWh, Stromsteuer 585,29 EUR. Zeilen stammen aus
+// dem Textlayer einer echten Rechnung (Kundendaten und Bankverbindungen entfernt,
+// Reihenfolge und Schreibweise unveraendert).
+// ------------------------------------------------------------
+const SCHLUSSRECHNUNG_ZEILEN = [
+  "MAINGAU Energie GmbH, Ringstr. 4 - 6, 63179 Obertshausen",
+  "Herrn",
+  "Mustermann GmbH",
+  "Gewerbepark Markfeld 2 d",
+  "83043 Bad Aibling",
+  "Ihre aktuelle Rechnung für den Zeitraum 01.02.2025 - 21.02.2026",
+  "2.624,84 €",
+  "Rechnungsdatum 06. März 2026",
+  "Schlussrechnung",
+  "01.02.2025 - 21.02.2026\tAbrechnungszeitraum:",
+  "Gewerbepark Markfeld 2d, 83043 Bad Aibling\tLieferstelle:",
+  "Strom 0 kWh 28.550 kWh (386) 7.419,20 1.409,64 (19%) 8.828,84",
+  "Messlokations-ID DE00106883043S0000000000000657459, Marktlokations-ID 50333282263, Codenummer des Verteilnetzbetreibers",
+  "Zeitraum Zählerstand Differenz Wandler Verbrauch",
+  "01.02.2025 - 09.06.2025 1.018 1.195 1) 177 50 8.850 kWh",
+  "10.06.2025 - 31.12.2025 1.195 1.477 2) 282 50 14.100 kWh",
+  "01.01.2026 - 30.01.2026 1.477 1.542 3) 65 50 3.250 kWh",
+  "31.01.2026 - 21.02.2026 1.542 1.589 3) 47 50 2.350 kWh",
+  "Summe 28.550 kWh",
+  "01.02.2025 - 09.06.2025 AP MAINGAU StromGarant 25,80 Ct/kWh 8.850 kWh 19% 2.283,30 €",
+  "Strom: Die Nettobeträge beinhalten:",
+  "Stromsteuer 585,29",
+  "Erneuerbare-Energien-Gesetz 0,00",
+  "Lieferstelle",
+  "Die Lieferstelle gibt Auskunft darüber, welcher Wohneinheit bzw. welcher Verbrauchs-",
+  "Stromsteuer: Die Stromsteuer ist eine Steuer auf den Energieverbrauch, welche durch das Stromsteuergesetz geregelt ist.",
+];
+
+describe("parseStromrechnung — Schlussrechnung ueber mehrere Jahre (Praxisfall)", () => {
+  const result = parseStromrechnung(mockResponse(SCHLUSSRECHNUNG_ZEILEN));
+
+  it("erkennt den Versorger an der Absenderzeile, nicht an 'Gewerbepark' (g-EWE-rbe)", () => {
+    expect(result.versorger).toBe("MAINGAU Energie GmbH");
+  });
+
+  it("liest die Lieferstelle mit PLZ, nicht den Erlaeuterungstext", () => {
+    expect(result.adresse).toBe("Gewerbepark Markfeld 2d, 83043 Bad Aibling");
+  });
+
+  it("liest die Stromsteuer aus dem Posten ohne Euro-Zeichen", () => {
+    expect(result.stromsteuerGezahlt).toBe(585.29);
+  });
+
+  it("nimmt die Marktlokations-ID, nicht die Ziffern der Messlokations-ID", () => {
+    expect(result.zaehlpunkt).toBe("50333282263");
+  });
+
+  it("liest Zeitraum und Gesamtmenge", () => {
+    expect(result.periodStart?.toISOString().slice(0, 10)).toBe("2025-02-01");
+    expect(result.periodEnd?.toISOString().slice(0, 10)).toBe("2026-02-21");
+    expect(result.jahresKwh).toBe(28_550);
+  });
+
+  it("teilt den Verbrauch auf die Kalenderjahre auf", () => {
+    expect(result.verbrauchProJahr).toEqual({ 2025: 22_950, 2026: 5_600 });
+  });
+});
+
+describe("parseStromrechnung — Verbrauch je Kalenderjahr", () => {
+  it("teilt ein Intervall ueber den Jahreswechsel nach Tagen auf (Summe bleibt exakt)", () => {
+    const result = parseStromrechnung(
+      mockResponse([
+        "Gesamtverbrauch 1.000 kWh",
+        "17.12.2025 - 15.01.2026 100 1.100 1) 1.000 1 1.000 kWh",
+      ]),
+    );
+    const jahre = result.verbrauchProJahr!;
+    expect(jahre[2025]! + jahre[2026]!).toBe(1_000);
+    // 15 Tage 2025 (17.-31.12.), 15 Tage 2026 (1.-15.01.)
+    expect(jahre[2025]).toBe(500);
+    expect(jahre[2026]).toBe(500);
+  });
+
+  it("liefert null, wenn die Intervalle nicht zur Gesamtmenge passen", () => {
+    const result = parseStromrechnung(
+      mockResponse([
+        "Gesamtverbrauch 9.000 kWh",
+        "01.01.2025 - 31.12.2025 1 2 1) 1 1 1.000 kWh",
+      ]),
+    );
+    expect(result.verbrauchProJahr).toBeNull();
+  });
+
+  it("liefert null ohne Verbrauchstabelle", () => {
+    expect(
+      parseStromrechnung(mockResponse(["Jahresverbrauch: 48.560 kWh"])).verbrauchProJahr,
+    ).toBeNull();
+  });
+});
+
+describe("parseStromrechnung — Stromsteuer-Posten und Adresse (Randfaelle)", () => {
+  it("verwechselt einen Steuersatz nicht mit dem gezahlten Betrag", () => {
+    const result = parseStromrechnung(
+      mockResponse(["Stromsteuer 20,50 €/MWh", "Stromsteuer 2,05 ct/kWh"]),
+    );
+    expect(result.stromsteuerGezahlt).toBeNull();
+  });
+
+  it("uebernimmt 'Stromsteuer 1.234,56 €' weiterhin", () => {
+    expect(
+      parseStromrechnung(mockResponse(["Stromsteuer 1.234,56 €"])).stromsteuerGezahlt,
+    ).toBe(1_234.56);
+  });
+
+  it("liefert keine Adresse aus einer blossen Ueberschrift mit Fliesstext", () => {
+    const result = parseStromrechnung(
+      mockResponse(["Lieferstelle", "Die Lieferstelle gibt Auskunft darüber, welche Wohneinheit gemeint ist."]),
+    );
+    expect(result.adresse).toBeNull();
+  });
+});

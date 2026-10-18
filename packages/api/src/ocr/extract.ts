@@ -20,6 +20,7 @@ export const LEERES_ERGEBNIS: ParsedBeleg = {
   adresse: null,
   stromsteuerGezahlt: null,
   zaehlpunkt: null,
+  verbrauchProJahr: null,
   confidence: 0,
   rawLines: [],
 };

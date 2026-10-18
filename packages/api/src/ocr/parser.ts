@@ -35,6 +35,13 @@ export type ParsedBeleg = {
   stromsteuerGezahlt: number | null;
   /** Marktlokations-ID (11 Ziffern) oder Zaehlpunktbezeichnung (DE + 31 Zeichen). */
   zaehlpunkt: string | null;
+  /**
+   * Verbrauch je Kalenderjahr in kWh, aus der Tabelle "Uebersicht der
+   * Verbrauchsmengen" (Zeitraum, Zaehlerstaende, Verbrauch). Nur gesetzt, wenn die
+   * Intervalle zur Gesamtmenge passen. Wichtig bei Schlussrechnungen ueber mehrere
+   * Jahre: Satz, Selbstbehalt und Ausschlussfrist gelten je Verbrauchsjahr.
+   */
+  verbrauchProJahr: Record<number, number> | null;
   /** Composite-Confidence: Anteil der erfolgreich extrahierten Felder. */
   confidence: number;
   /** Volltext der erkannten Zeilen, falls UI Original anzeigen will. */
@@ -83,15 +90,18 @@ const DATE_REGEX = /\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b/g;
 const ADRESSE_LABEL_REGEX =
   /^(Liefer(?:stelle|adresse)|Verbrauchs(?:stelle|adresse)|Standort)[\s:]*/i;
 
-/** Euro-Betrag im deutschen Format: z. B. "995,48 €", "1.234,56€" oder "1.234,56 EUR" */
-const EURO_REGEX = /(\d{1,3}(?:\.\d{3})*),(\d{2})\s*(?:€|EUR\b)/i;
+/**
+ * Euro-Betrag im deutschen Format: z. B. "995,48 €", "1.234,56€" oder "1.234,56 EUR".
+ * Kein Betrag ist "20,50 €/MWh" (ein Steuersatz): nach dem Euro-Zeichen darf kein "/" folgen.
+ */
+const EURO_REGEX = /(\d{1,3}(?:\.\d{3})*),(\d{2})\s*(?:€|EUR\b)(?!\s*\/)/i;
 
 /** Zaehlpunktbezeichnung: DE, 6-stellige Netzbetreibernummer, PLZ, 20 Zeichen Zaehlpunktnummer. */
 const ZAEHLPUNKT_REGEX = /DE\d{11}[0-9A-Z]{20}/;
 
 /** Zeile mit Marktlokations-Label; die ID steht dort oder in der Folgezeile. */
 const MALO_LABEL_REGEX = /marktlokation|\bmalo\b/i;
-const MALO_ID_REGEX = /(?<!\d)(\d{11})(?!\d)/;
+const MALO_ID_REGEX = /(?<![\dA-Za-z])(\d{11})(?![\d])/;
 
 function parseDeutscheZahl(integer: string, decimal: string | undefined): number {
   const withoutThousand = integer.replace(/\./g, "");
@@ -119,14 +129,42 @@ function extractLines(response: TextractResponseShape): string[] {
     .filter((s) => s.length > 0);
 }
 
+/** Buchstabe (inkl. Umlaute) – fuer Wortgrenzen beim Marken-Match. */
+const BUCHSTABE = "A-Za-zÄÖÜäöüß";
+
+function markenRegex(brand: string): RegExp {
+  const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Links immer eine Wortgrenze: "EWE" steckt sonst in "Gewerbepark" (g-EWE-rbe) und
+  // machte aus einer MAINGAU-Rechnung eine EWE-Rechnung. Kurze Namen brauchen
+  // auch rechts eine Grenze; "Stadtwerke" darf als "Stadtwerken" weiterlaufen.
+  const rechts = brand.length <= 4 ? `(?![${BUCHSTABE}])` : "";
+  return new RegExp(`(?<![${BUCHSTABE}])${escaped}${rechts}`, "i");
+}
+
+/**
+ * Absenderzeile im Briefkopf: "MAINGAU Energie GmbH, Ringstr. 4 - 6, 63179 Obertshausen".
+ * Nur mit Rechtsform und anschliessender Adresse, damit keine beliebige Zeile
+ * als Versorger durchgeht.
+ */
+const ABSENDER_REGEX =
+  /^\s*([^,\n]{3,60}?\s(?:GmbH|mbH|AG|SE|KG|eG|UG)(?:\s*&\s*Co\.\s*KG)?)\s*,\s*[^,\n]*\d/;
+
 function detectVersorger(lines: string[]): string | null {
-  // Top-of-page Brand-Match: schaut auf die ersten ~10 Zeilen, dann Fallback
-  // auf gesamte Rechnung.
+  // Top-of-page Brand-Match: schaut auf die ersten ~10 Zeilen, dann Absenderzeile,
+  // dann Fallback auf die gesamte Rechnung.
   const search = (zeilen: string[]) =>
     TOP_VERSORGER.find((brand) =>
-      zeilen.some((line) => line.toLowerCase().includes(brand.toLowerCase())),
+      zeilen.some((line) => markenRegex(brand).test(line)),
     );
-  return search(lines.slice(0, 10)) ?? search(lines) ?? null;
+  const kopf = lines.slice(0, 10);
+  const marke = search(kopf);
+  if (marke) return marke;
+
+  for (const line of kopf) {
+    const absender = ABSENDER_REGEX.exec(line);
+    if (absender) return absender[1]!.trim();
+  }
+  return search(lines) ?? null;
 }
 
 type KwhKandidat = { value: number; line: string };
@@ -162,6 +200,62 @@ function detectJahresKwh(lines: string[]): number | null {
   return Math.max(...basis.map((k) => k.value));
 }
 
+const TAG_MS = 86_400_000;
+
+/**
+ * Zeile der Verbrauchstabelle: "01.02.2025 - 09.06.2025 1.018 1.195 1) 177 50 8.850 kWh" –
+ * Zeitraum vorn, Verbrauch in kWh am Zeilenende. Preiszeilen ("... 25,80 Ct/kWh 8.850 kWh
+ * 19% 2.283,30 €") enden mit einem Betrag und werden dadurch nicht erfasst.
+ */
+const VERBRAUCHS_INTERVALL_REGEX =
+  /^(\d{1,2})\.(\d{1,2})\.(\d{4})\s*-\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\b.*?((?:\d{1,3}(?:\.\d{3})+|\d+))(?:,(\d+))?\s*kWh\s*$/i;
+
+/**
+ * Verbrauch je Kalenderjahr aus den Intervallen der Verbrauchstabelle. Liegt ein
+ * Intervall in zwei Jahren, wird es nach Tagen aufgeteilt. Gibt null zurueck, wenn
+ * nichts gefunden wurde oder die Summe nicht zur Gesamtmenge passt (z. B. weil die
+ * Tabelle zweimal auf der Rechnung steht).
+ */
+function detectVerbrauchProJahr(
+  lines: string[],
+  jahresKwh: number | null,
+): Record<number, number> | null {
+  const intervalle = new Map<string, { von: Date; bis: Date; kwh: number }>();
+  for (const line of lines) {
+    const m = VERBRAUCHS_INTERVALL_REGEX.exec(line.trim());
+    if (!m) continue;
+    const von = parseDate(m[1]!, m[2]!, m[3]!);
+    const bis = parseDate(m[4]!, m[5]!, m[6]!);
+    if (!von || !bis || bis < von) continue;
+    const kwh = Math.round(parseDeutscheZahl(m[7]!, m[8]));
+    if (!Number.isFinite(kwh) || kwh <= 0) continue;
+    intervalle.set(`${von.toISOString()}|${bis.toISOString()}`, { von, bis, kwh });
+  }
+  if (intervalle.size === 0) return null;
+
+  const proJahr: Record<number, number> = {};
+  let summe = 0;
+  for (const { von, bis, kwh } of intervalle.values()) {
+    const tage = Math.round((bis.getTime() - von.getTime()) / TAG_MS) + 1;
+    let rest = kwh;
+    for (let jahr = von.getUTCFullYear(); jahr <= bis.getUTCFullYear(); jahr++) {
+      const start = Math.max(von.getTime(), Date.UTC(jahr, 0, 1));
+      const ende = Math.min(bis.getTime(), Date.UTC(jahr, 11, 31));
+      const tageImJahr = Math.round((ende - start) / TAG_MS) + 1;
+      // Letztes Jahr bekommt den Rest, damit die Summe exakt bleibt
+      const anteil =
+        jahr === bis.getUTCFullYear() ? rest : Math.round((kwh * tageImJahr) / tage);
+      proJahr[jahr] = (proJahr[jahr] ?? 0) + anteil;
+      rest -= anteil;
+    }
+    summe += kwh;
+  }
+
+  // Muss zur erkannten Gesamtmenge passen (1 % Toleranz), sonst nicht verwenden
+  if (jahresKwh === null || Math.abs(summe - jahresKwh) > jahresKwh * 0.01) return null;
+  return proJahr;
+}
+
 function detectPeriod(lines: string[]): {
   periodStart: Date | null;
   periodEnd: Date | null;
@@ -182,7 +276,19 @@ function detectPeriod(lines: string[]): {
   return { periodStart: null, periodEnd: null };
 }
 
+/**
+ * Posten in der Aufstellung "Die Nettobetraege beinhalten": "Stromsteuer 585,29" –
+ * Betrag ohne Euro-Zeichen am Zeilenende. Ein Satz wie "Stromsteuer 20,50 €/MWh"
+ * oder "2,05 ct/kWh" passt bewusst nicht (nach dem Betrag darf nur noch €/EUR folgen).
+ */
+const STROMSTEUER_POSTEN_REGEX =
+  /^\s*stromsteuer\s*:?\s*(\d{1,3}(?:\.\d{3})*),(\d{2})\s*(?:€|EUR)?\s*$/i;
+
 function detectStromsteuer(lines: string[]): number | null {
+  for (const line of lines) {
+    const posten = STROMSTEUER_POSTEN_REGEX.exec(line);
+    if (posten) return parseDeutscheZahl(posten[1]!, posten[2]);
+  }
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     if (!/stromsteuer/i.test(line)) continue;
@@ -198,7 +304,25 @@ function detectStromsteuer(lines: string[]): number | null {
   return null;
 }
 
+/** Eine Adresse hat eine 5-stellige PLZ (Lieferstellen stehen immer mit PLZ auf der Rechnung). */
+function sieht_aus_wie_adresse(text: string): boolean {
+  return /(?<!\d)\d{5}(?!\d)/.test(text);
+}
+
+/**
+ * Umgekehrte Reihenfolge, wie sie bei tabellarischen Kopfbloecken vorkommt: erst der Wert,
+ * dann (per Tab getrennt) das Label – "Gewerbepark Markfeld 2d, 83043 Bad Aibling<TAB>Lieferstelle:".
+ */
+const ADRESSE_WERT_VOR_LABEL_REGEX =
+  /^(.+?)\s*(?:Liefer(?:stelle|adresse)|Verbrauchs(?:stelle|adresse)|Standort)\s*:?\s*$/i;
+
 function detectAdresse(lines: string[]): string | null {
+  for (const line of lines) {
+    const rueckwaerts = ADRESSE_WERT_VOR_LABEL_REGEX.exec(line);
+    const wert = rueckwaerts?.[1]?.trim();
+    if (wert && sieht_aus_wie_adresse(wert)) return wert;
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     if (ADRESSE_LABEL_REGEX.test(line)) {
@@ -211,13 +335,26 @@ function detectAdresse(lines: string[]): string | null {
       if (next && overnext && /^\d{5}/.test(overnext)) {
         return `${next}, ${overnext}`;
       }
-      if (next) return next;
+      // Eine Ueberschrift "Lieferstelle" in den Erlaeuterungen ist von Fliesstext
+      // gefolgt ("Die Lieferstelle gibt Auskunft ...") – das ist keine Adresse.
+      if (next && sieht_aus_wie_adresse(next)) return next;
     }
   }
   return null;
 }
 
+/** "Marktlokations-ID 50333282263": die ID direkt hinter dem Label. */
+const MALO_NACH_LABEL_REGEX =
+  /marktlokations?[-\s]*(?:id|nummer)?\s*:?\s*(?<![\dA-Za-z])(\d{11})(?!\d)/i;
+
 function detectZaehlpunkt(lines: string[]): string | null {
+  // Zuerst die ID, die unmittelbar hinter "Marktlokations-ID" steht. Auf derselben Zeile
+  // steht oft auch die Messlokations-ID ("DE00106883043S000...") – deren 11 Ziffern nach
+  // "DE" sind NICHT die Marktlokation und wurden frueher faelschlich uebernommen.
+  for (const line of lines) {
+    const direkt = MALO_NACH_LABEL_REGEX.exec(line.replace(/\s+/g, " "));
+    if (direkt) return direkt[1]!;
+  }
   for (let i = 0; i < lines.length; i++) {
     if (!MALO_LABEL_REGEX.test(lines[i]!)) continue;
     for (const candidate of [lines[i]!, lines[i + 1] ?? ""]) {
@@ -244,6 +381,7 @@ export function parseStromrechnung(
   const adresse = detectAdresse(lines);
   const stromsteuerGezahlt = detectStromsteuer(lines);
   const zaehlpunkt = detectZaehlpunkt(lines);
+  const verbrauchProJahr = detectVerbrauchProJahr(lines, jahresKwh);
 
   // Confidence-Score: wie viele der vier Schluessel-Felder konnten extrahiert werden?
   const totalFields = 4;
@@ -262,6 +400,7 @@ export function parseStromrechnung(
     adresse,
     stromsteuerGezahlt,
     zaehlpunkt,
+    verbrauchProJahr,
     confidence,
     rawLines: lines,
   };
